@@ -1,0 +1,224 @@
+<?php
+
+/**
+ * @author Caio Chami
+ * @since 2020-10-19
+ *
+ * Subject: "Request validator"
+ *
+ */
+
+namespace Bundles;
+
+use Bundles\Rule;
+use Bundles\Collection;
+
+use \Exception;
+
+class Validator extends Rule
+{
+    protected static $conn;
+    protected static Collection $request;
+    protected static array $customMessages = [];
+    protected static \stdClass $currentValidation;
+
+    private static array $errors = [];
+    private static array $validated = [];
+    private bool $success = false;
+
+    //creates a self instance with validation results
+    public static function make(array $request, array $rules, \PDO $connection = null, array $customMessages = []): self
+    {
+        self::$conn = $connection;
+        self::$customMessages = $customMessages;
+        self::$request = Collection::create($request, true);
+        self::$currentValidation = new \stdClass();
+
+        foreach ($rules as $field => $ruleSet) {
+            self::$currentValidation->fieldName = $field;
+            self::$currentValidation->ruleSet = $ruleSet;
+            $dismemberedFields = self::dismemberField($field);
+            self::handleFieldSet($dismemberedFields, $ruleSet);
+        }
+
+        return new self;
+    }
+
+    private static function handleFieldSet(array $fieldSet, array $ruleSet)
+    {
+        $request = self::$request;
+        $length = count($fieldSet);
+        $path = [];
+        $position = 0;
+
+        foreach ($fieldSet as $key => $index) {
+
+            $position++;
+            $path[] = $index;
+            $parentPath = array_slice($path, 0, $position - 1);
+
+            self::$currentValidation->fieldIndex = $index;
+            self::$currentValidation->parentPath = $parentPath;
+
+            if ($index === "*" && in_array("*", $fieldSet)) {
+
+                $parentValue = $request->getValueByPath($parentPath);
+                if (gettype($parentValue) === "array") {
+                    $remainingPath = array_slice($fieldSet, $position);
+                    foreach ($parentValue as $key => $el) {
+                        self::handleFieldSet(array_merge($parentPath, [$key], $remainingPath), $ruleSet);
+                    }
+
+                    return;
+                } else {
+                    throw new \Exception("The value is not iterable");
+                }
+            } else {
+                self::$currentValidation->currentPath = $path;
+                $currentValue = $request->getValueByPath($path);
+
+                if ($position === $length) {
+                    self::exec($ruleSet, implode('.', $path), $currentValue);
+                }
+            }
+        }
+    }
+
+    //run validation based on ruleset and field name provided
+    private static function exec(array $ruleSet, string $field, $value): void
+    {
+
+        foreach ($ruleSet as $rule) {
+            $rule = self::dismemberRule($rule);
+            self::$currentValidation->currentField = $field;
+            self::$currentValidation->currentRule = $rule->name;
+
+            if (!method_exists(__CLASS__, $rule->name)) {
+                throw new \Exception('Rule "' . $rule->name . '" does not exists');
+            }
+
+            //if the rule set has nullable rule, it will ignore other rules if the value is null
+            if ($rule->name === "nullable" && is_null($value)) {
+                $verified = true;
+                break;
+            } elseif ($rule->name === "required_if") {
+
+                if (count($rule->params) !== 2) {
+                    throw new Exception("Rule required_if expects 2 params");
+                }
+
+                if ($rule->params[0] !== $rule->params[1]) {
+                    $verified = true;
+                    break;
+                }
+
+                $rule->params = [
+                    self::$currentValidation->comparingFieldName,
+                    $rule->params[1]                  
+                ];
+
+            } elseif ($rule->name === "confirmed") {
+
+                $confirmationFieldValue = $rule->params[0] ?? null;
+
+                if(!$confirmationFieldValue){
+                    $confirmationFieldName =  self::$currentValidation->fieldIndex . "_confirmation";
+                    $path = array_merge(self::$currentValidation->parentPath, [$confirmationFieldName]);
+                    $confirmationFieldValue = self::$request->getValueByPath($path) ?? [];
+                }
+
+                $rule->params[0] = $confirmationFieldValue;
+            }
+
+            $verified = self::{$rule->name}($value, $rule->params);
+
+
+            if (!$verified) {
+                
+                self::$errors[$field][] = self::getErrorMessage($rule->name, array_merge([$field], $rule->params));
+            }
+
+            self::$validated[$field] = $value;
+        }
+    }
+
+    private static function dismemberField(string $field): array
+    {
+        $exploded = explode('.', $field);
+        return $exploded;
+    }
+
+    private static function formatRule(string $rule): array
+    {
+        $exploded = explode(':', $rule, 2);
+        $name = $exploded[0];
+        $params = $exploded[1] ?? null;
+
+        return [
+            "name" => $name,
+            "params" => $params
+        ];
+    }
+
+    private static function dismemberRule(string $rule): \stdClass
+    {
+        $formattedRule = self::formatRule($rule);
+        self::$currentValidation->comparingFieldName = null;
+        $path = self::$currentValidation->parentPath;
+        $request = self::$request;
+        
+        if ($formattedRule["params"]) {
+            $formattedRule["params"] = array_map(
+                function ($param) use ($path, $request) {
+                    
+                    $path = self::$currentValidation->parentPath;
+                    $value = $request->getValueByPath(array_merge($path, [$param]));
+                    if($value){
+                        self::$currentValidation->comparingFieldName = $param;
+                        return $value;
+                    }
+                    return $param;
+                },
+                explode(",", $formattedRule["params"])
+            );
+        }
+
+        $rule = new \stdClass();
+        $rule->name = $formattedRule["name"];
+        $rule->params = $formattedRule["params"] ?? [];
+
+        return $rule;
+    }
+
+    //retrieves all errors
+    public function errors(): array
+    {
+        return  $failed = array_filter(self::$errors, function ($error) {
+            return count($error);
+        });
+    }
+
+    //retrieves all validated data
+    public function validated(): array
+    {
+        return self::$validated;
+    }
+
+    //checks if validation has failed
+    public function fails(): bool
+    {
+        $this->success = false;
+
+        //error counter
+        $hasErrors =
+            Collection::create(self::$errors)
+            ->count();
+
+        //returns error
+        if ($hasErrors > 0) {
+            $this->success = true;
+        }
+
+        return $this->success;
+    }
+}

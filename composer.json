@@ -1,0 +1,21 @@
+{
+    "name": "caiochami/bundles",
+    "description": "A laravel set of tools for non-laravel projects",
+    "type": "project",
+    "require": {
+        "php": ">=7.2"
+    },
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Caio Chami",
+            "email": "caio.chami18@gmail.com"
+        }
+    ],
+    "minimum-stability": "dev",
+    "autoload": {
+        "psr-4": {
+            "Bundles\\": "src/"
+        }
+    }
+}
