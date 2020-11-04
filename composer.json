@@ -1,7 +1,7 @@
 {
     "name": "caiochami/bundles",
     "description": "A laravel set of tools for non-laravel projects",
-    "type": "project",
+    "type": "library",
     "require": {
         "php": ">=7.2"
     },
