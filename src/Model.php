@@ -1,53 +1,90 @@
-<?php 
+<?php
+
 /**
  * Model 
  * 
  * @author Caio Chami
  * @since 2020-09-03
  */
+
 namespace Bundles;
 
 use \PDO;
 
-use Carbon\Carbon;
+use \Exception;
+
+use \Carbon\Carbon;
 
 use Bundles\Collection;
 
-class Model {
+class Model
+{
 
-    protected static $conn;    
+    /**
+     * @var \PDO $conn
+     */
+
+    protected static $conn;
+
+    /**
+     * @var array $where
+     */
 
     protected static $where = [];
 
+    /**
+     * @var array $orWhere
+     */
+
     protected static $orWhere = [];
+
+    /**
+     * @var array $whereBetween
+     */
 
     protected static $whereBetween = [];
 
+    /**
+     * @var array $whereIn
+     */
+
     protected static $whereIn = [];
+
+    /**
+     * @var array $orderBy
+     */
 
     protected static $orderBy = [];
 
+    /**
+     * @var mixed $withCount
+     */
+
     protected static $withCount = null;
+
+    /**
+     * @var string $limit
+     */
 
     protected static $limit = "";
 
-    public function __construct($connection = null){
+    public function __construct($connection = null)
+    {
 
-        if($connection){
+        if ($connection) {
             self::$conn = $connection;
         }
-        
     }
 
     public static function getSql($conditions = "", $sort = "", $limit = "")
     {
         $sql =
-        "SELECT 
-        ".static::$columns."
+            "SELECT 
+        " . static::$columns . "
         FROM 
-        ".static::$tableName."
-        ".static::$joins."
-        ".self::getConditions()."
+        " . static::$tableName . "
+        " . static::$joins . "
+        " . self::getConditions() . "
         {$conditions} {$sort} {$limit};";
 
         return $sql;
@@ -57,7 +94,7 @@ class Model {
     {
         self::$conn = $conn;
         self::clearWhereParams();
-    }       
+    }
 
     public static function all(PDO $conn, $conditions = "")
     {
@@ -66,35 +103,34 @@ class Model {
     }
 
     //define which database connection to use
-    public static function use (PDO $conn)
+    public static function use(PDO $conn)
     {
-       self::setConnection($conn);      
-       return new static;
+        self::setConnection($conn);
+        return new static;
     }
 
     //sets table alias to column if it was not specified
-    private static function formatColumn(string $column) : string
+    private static function formatColumn(string $column): string
     {
         $tableAlias = self::getTableAlias();
 
         $formattedTableAlias = "";
 
-        if($tableAlias){
-            $formattedTableAlias = self::getTableAlias() . '.';           
+        if ($tableAlias) {
+            $formattedTableAlias = self::getTableAlias() . '.';
         }
 
         $exploded = explode('.', $column);
         return count($exploded) > 1 ? $column : $formattedTableAlias . $column;
-    }    
+    }
 
     private static function formatValue($value)
     {
-        if(gettype($value) === "string") {
-            $value = "'". $value . "'";
-        }
-        else{
+        if (gettype($value) === "string") {
+            $value = "'" . $value . "'";
+        } else {
             $value = (int) $value;
-        }     
+        }
 
         return $value;
     }
@@ -107,13 +143,13 @@ class Model {
 
     public static function select(array $columns)
     {
-        static::$columns = implode(', ' , $columns);
+        static::$columns = implode(', ', $columns);
         return new static;
     }
 
     public static function where(string $column, $value)
     {
-        
+
         $totalArgs = func_num_args();
         $args = func_get_args();
 
@@ -123,19 +159,19 @@ class Model {
 
         //sets default operator to equals if middle argument is omitted
 
-        if($totalArgs > 2){
+        if ($totalArgs > 2) {
             $operator = $args[1];
             $value = $args[2];
-        }   
+        }
 
         self::$where[] = $column . ' ' . $operator . ' ' . self::formatValue($value);
 
-        return new static;        
+        return new static;
     }
 
     public static function orWhere(string $column, string $value)
     {
-        
+
         $totalArgs = func_num_args();
         $args = func_get_args();
 
@@ -143,32 +179,34 @@ class Model {
 
         $operator = "=";
 
-        if($totalArgs > 2){
+        if ($totalArgs > 2) {
             $operator = $args[1];
             $value = $args[2];
-        }   
+        }
 
         self::$orWhere[] = $column . ' ' . $operator . ' ' . self::formatValue($value);
 
-        return new static;        
+        return new static;
     }
 
-    public static function whereIn(string $column, array $values){
+    public static function whereIn(string $column, array $values)
+    {
 
         $wrappedValues = [];
 
         $length = count($values);
 
-        foreach($values as $key => $value){
+        foreach ($values as $key => $value) {
             $wrappedValues[] = self::formatValue($value);
         }
 
-        self::$whereIn[] = self::formatColumn($column) . " IN (" . implode(",",$wrappedValues) . ")";
+        self::$whereIn[] = self::formatColumn($column) . " IN (" . implode(",", $wrappedValues) . ")";
         return new static;
     }
 
-    public static function whereBetween(string $column, string $startsAt, string $endsAt){
-       
+    public static function whereBetween(string $column, string $startsAt, string $endsAt)
+    {
+
         self::$whereBetween[] = self::formatColumn($column) . " BETWEEN '{$startsAt}' AND '{$endsAt}'";
         return new static;
     }
@@ -189,7 +227,7 @@ class Model {
 
         $WHERE_BETWEEN_LENGTH = count(self::$whereBetween);
         $WHERE_BETWEEN = $WHERE_BETWEEN_LENGTH ? " AND " . implode(' AND ', self::$whereBetween) : "";
-        
+
         $WHERE_IN_LENGTH = count(self::$whereIn);
         $WHERE_IN = $WHERE_IN_LENGTH ? " AND " . implode(' AND ', self::$whereIn) : "";
 
@@ -198,11 +236,13 @@ class Model {
             $WHERE_BETWEEN_LENGTH,
             $OR_WHERE_LENGTH,
             $WHERE_IN_LENGTH,
-        ], function($haystack, $length){ return $haystack + $length; });
+        ], function ($haystack, $length) {
+            return $haystack + $length;
+        });
 
-        $OPTIONS = $CHECK_IF_HAS_OPTIONS ? ("WHERE 1=1 " . $WHERE . $OR_WHERE . $WHERE_IN . $WHERE_BETWEEN ) : "";
+        $OPTIONS = $CHECK_IF_HAS_OPTIONS ? ( "WHERE 1=1 " . $WHERE . $OR_WHERE . $WHERE_IN . $WHERE_BETWEEN) : "";
 
-        $ORDER_BY = count(self::$orderBy) ? "ORDER BY " . implode("," ,self::$orderBy) : "";
+        $ORDER_BY = count(self::$orderBy) ? "ORDER BY " . implode(",", self::$orderBy) : "";
 
         $LIMIT = self::$limit ? "LIMIT " . self::$limit : "";
 
@@ -215,23 +255,23 @@ class Model {
         return new static;
     }
 
-    public static function withCount($column = null){
-        
+    public static function withCount($column = null)
+    {
+
         $column = $column ? self::formatColumn($column) : static::$key;
         self::$withCount = $column;
-        static::$columns .= " , COUNT( ".$column." ) AS with_count ";
+        static::$columns .= " , COUNT( " . $column . " ) AS with_count ";
         return new static;
     }
 
     public static function retrieve()
     {
-        if(!self::$conn)
-        {
+        if (!self::$conn) {
             throw new Exception('Connection was not set');
         }
-        
+
         $sql = self::getSql();
-       
+
         $stmt = self::$conn->prepare($sql);
         $stmt->execute();
 
@@ -250,7 +290,8 @@ class Model {
         return new Collection($collection);
     }
 
-    public static function with(array $relationships){
+    public static function with(array $relationships)
+    {
         foreach (self::$collection as $key => $item) {
             foreach ($relationships as $key => $relationship) {
                 $item->{$relationship}();
@@ -265,27 +306,26 @@ class Model {
         self::setConnection($conn);
         $id = htmlspecialchars(strip_tags($id));
 
-        $collection = self::fetch('WHERE '.static::$key.' = ' . $id, '', 'LIMIT 0,1');
+        $collection = self::fetch('WHERE ' . static::$key . ' = ' . $id, '', 'LIMIT 0,1');
         return count($collection) ? $collection[0] : null;
     }
 
     private static function setProperties($instance, array $data)
     {
-        if(defined("CONNECTION_ID")){
+        if (defined("CONNECTION_ID")) {
             $instance->connection_id = CONNECTION_ID;
         }
 
-        if(defined("CONNECTION_NAME")){
+        if (defined("CONNECTION_NAME")) {
             $instance->connection_name = CONNECTION_NAME;
         }
 
         foreach ($data as $key => $value) {
 
-            if(\preg_match("/\_id/i", $key) || $key === "id"){
+            if (\preg_match("/\_id/i", $key) || $key === "id") {
                 $value = intval($data[$key]);
                 $instance->{$key} = $value > 0 ? $value : null;
-            }
-            else{
+            } else {
                 $instance->{$key} = $data[$key];
             }
         }
@@ -313,7 +353,7 @@ class Model {
     private static function fetch($conditions = "", $sort = "", $limit = "")
     {
         // select all query
-       
+
         $sql = self::getSql($conditions, $sort, $limit);
 
         $stmt = self::$conn->prepare($sql);
@@ -333,30 +373,31 @@ class Model {
         return $collection;
     }
 
-    public static function createOrUpdate(PDO $conn, array $data){
+    public static function createOrUpdate(PDO $conn, array $data)
+    {
         $values =  array_values($data);
 
         $columns = array_keys($data);
 
         $updateParams = [];
 
-        foreach($data as $key => $value){         
-            if($key !== static::$key ) $updateParams[] = "{$key} = {$value}";
+        foreach ($data as $key => $value) {
+            if ($key !== static::$key) $updateParams[] = "{$key} = {$value}";
         };
 
         self::setConnection($conn);
 
-        return $sql = "INSERT INTO ".static::$tableName." (".implode(",", $columns).") ON DUPLICATE KEY UPDATE " . implode(",", $updateParams);
+        return $sql = "INSERT INTO " . static::$tableName . " (" . implode(",", $columns) . ") ON DUPLICATE KEY UPDATE " . implode(",", $updateParams);
 
-        foreach($values as $key => $value){
+        foreach ($values as $key => $value) {
             $values[$key] = htmlspecialchars(strip_tags($value));
         }
 
-        $bindValues = array_map(function($val){
+        $bindValues = array_map(function ($val) {
             return "?";
-        },$values);
+        }, $values);
 
-        $sql .= "VALUES (".implode(",", $bindValues).")";
+        $sql .= "VALUES (" . implode(",", $bindValues) . ")";
 
         $stmt = self::$conn->prepare($sql);
 
@@ -368,9 +409,10 @@ class Model {
         return false;
     }
 
-    public static function update(PDO $conn, int $id, array $params){
+    public static function update(PDO $conn, int $id, array $params)
+    {
 
-        if(!$id){
+        if (!$id) {
             throw new Exception("id is required");
         }
 
@@ -382,32 +424,33 @@ class Model {
 
         $ALLOWED_MYSQL_FUNCTIONS = ['NOW()', 'CURRENT_DATE()', 'CURRENT_TIMESTAMP()'];
 
-        foreach($params as $key => $value){ 
-            if(\gettype($value) === "string" && !in_array($value, $ALLOWED_MYSQL_FUNCTIONS)){
+        foreach ($params as $key => $value) {
+            if (\gettype($value) === "string" && !in_array($value, $ALLOWED_MYSQL_FUNCTIONS)) {
                 $value = "'" . addslashes(strip_tags($value)) .  "'";
             }
-            if($key !== static::$key ) $updateParams[] = "{$key} = ?";
+            if ($key !== static::$key) $updateParams[] = "{$key} = ?";
         };
 
         self::setConnection($conn);
 
-        $sql = "UPDATE " . self::getTableName() . " SET ".implode(", ", $updateParams)." WHERE  " . self::getKeyName() ." = " . $id ;
+        $sql = "UPDATE " . self::getTableName() . " SET " . implode(", ", $updateParams) . " WHERE  " . self::getKeyName() . " = " . $id;
 
         $stmt = self::$conn->prepare($sql);
 
         if ($stmt->execute($values)) {
-           return true;
+            return true;
         }
 
         return false;
     }
 
-    protected static function getKeyName(){
+    protected static function getKeyName()
+    {
         $arr =  explode('.', static::$key);
-        if(count($arr) > 1){
+        if (count($arr) > 1) {
             return $arr[1];
         }
-        
+
         return $arr[0];
     }
 
@@ -431,14 +474,14 @@ class Model {
         self::setConnection($conn);
 
         $tableName = self::getTableName();
-        
-        $sql = "INSERT INTO ".$tableName." (".implode(",", $columns).")";
 
-        $bindValues = array_map(function($val){
+        $sql = "INSERT INTO " . $tableName . " (" . implode(",", $columns) . ")";
+
+        $bindValues = array_map(function ($val) {
             return "?";
-        },$values);
+        }, $values);
 
-        $sql .= "VALUES (".implode(",", $bindValues).")";
+        $sql .= "VALUES (" . implode(",", $bindValues) . ")";
 
         $connection = self::$conn;
 
@@ -453,8 +496,9 @@ class Model {
         return false;
     }
 
-    private static function lastInsertedId(){
-        $sql = "SELECT MAX(".static::$key.") AS last_inserted_id FROM ".static::$tableName."; ";
+    private static function lastInsertedId()
+    {
+        $sql = "SELECT MAX(" . static::$key . ") AS last_inserted_id FROM " . static::$tableName . "; ";
 
         $stmt = self::$conn->prepare($sql);
 
@@ -464,18 +508,19 @@ class Model {
         return $row['last_inserted_id'];
     }
 
-    public static function destroy(PDO $conn, int $id){
-        
+    public static function destroy(PDO $conn, int $id)
+    {
+
         self::setConnection($conn);
 
-        $sql = 
-        "DELETE FROM  
-        ".static::getTableName()."
-        WHERE ".static::getKeyName()." = ?;";
+        $sql =
+            "DELETE FROM  
+        " . static::getTableName() . "
+        WHERE " . static::getKeyName() . " = ?;";
 
         $stmt = self::$conn->prepare($sql);
 
-        $stmt->bindParam('1', $id, PDO::PARAM_INT );
+        $stmt->bindParam('1', $id, PDO::PARAM_INT);
 
         if ($stmt->execute()) {
             return true;
@@ -493,23 +538,23 @@ class Model {
     {
         $array = [];
 
-        foreach($this->fields as $field){
+        foreach ($this->fields as $field) {
             $array[$field] = $this->{$field};
-        }      
-        
+        }
+
         $connection = self::$conn;
 
-        if($this->id){
+        if ($this->id) {
             return self::update($connection, $this->id, $array);
-        }
-        else{
+        } else {
             return self::create($connection, $array);
         }
     }
 
     public function presentedTimestamp($column, $format = "d/m/Y H:i:s")
     {
-        return $this->{$column} ? Carbon::parse($this->{$column})->format($format) : null;
+        return $this->{$column} ? 
+        Carbon::parse($this->{$column})->format($format) : 
+        null;
     }
-    
 }

@@ -2,6 +2,7 @@
     "name": "caiochami/bundles",
     "description": "A laravel set of tools for non-laravel projects",
     "type": "library",
+    "homepage": "https://github.com/caiochami/bundles",
     "require": {
         "php": ">=7.2",
         "nesbot/carbon": "^2.41.5"

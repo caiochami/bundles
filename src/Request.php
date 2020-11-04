@@ -17,6 +17,10 @@ use \PDO;
 
 class Request
 {
+    /**
+     * @var \PDO $conn
+     */
+    
     protected static $conn;
 
     public function __construct(PDO $conn = null)

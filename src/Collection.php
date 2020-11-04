@@ -9,6 +9,10 @@ namespace Bundles;
 
 class Collection
 {
+    /**
+     * @var array $collection
+     */
+
     private $collection = [];
 
     public function __construct(array $data)
@@ -87,7 +91,7 @@ class Collection
     public function filterBy($idx, $val, string $operator = "eq") : self
     {
         $callable = [
-            "present" => static function($item, $prop, $value) : bool {
+            "present" => static function($item, $prop) : bool {
                 return isset($item[$prop]);
             },
             "eq" => static function ($item, $prop, $value): bool {

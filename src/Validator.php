@@ -17,14 +17,47 @@ use \Exception;
 
 class Validator extends Rule
 {
-    protected static $conn;
-    protected static Collection $request;
-    protected static array $customMessages = [];
-    protected static \stdClass $currentValidation;
+    /**
+     * @var \PDO $conn
+     */
 
-    private static array $errors = [];
-    private static array $validated = [];
-    private bool $success = false;
+    protected static $conn;
+    
+    /**
+     * @var \Bundles\Collection $request
+     */
+
+    protected static $request;
+
+    /**
+     * @var array $customMessages
+     */
+    
+    protected static $customMessages = [];
+
+    /**
+     * @var \stdClass $currentValidation
+     */
+
+    protected static $currentValidation;
+
+    /**
+     * @var array $errors
+     */
+
+    private static $errors = [];
+
+    /**
+     * @var array $validated
+     */
+
+    private static $validated = [];
+
+    /**
+     * @var bool $success
+     */
+
+    private $success = false;
 
     //creates a self instance with validation results
     public static function make(array $request, array $rules, \PDO $connection = null, array $customMessages = []): self
@@ -114,14 +147,27 @@ class Validator extends Rule
 
                 $rule->params = [
                     self::$currentValidation->comparingFieldName,
-                    $rule->params[1]                  
+                    $rule->params[1]
                 ];
+            } elseif ($rule->name === "required_with") {
 
+                if (count($rule->params) !== 1) {
+                    throw new Exception("Rule required_with expects 1 param and it must be referenced to another field name");
+                }
+
+                if (!$rule->params[0]) {
+                    break;
+                }
+
+                $rule->params = [
+                    self::$currentValidation->comparingFieldName,
+                    $rule->params[0]
+                ];
             } elseif ($rule->name === "confirmed") {
 
                 $confirmationFieldValue = $rule->params[0] ?? null;
 
-                if(!$confirmationFieldValue){
+                if (!$confirmationFieldValue) {
                     $confirmationFieldName =  self::$currentValidation->fieldIndex . "_confirmation";
                     $path = array_merge(self::$currentValidation->parentPath, [$confirmationFieldName]);
                     $confirmationFieldValue = self::$request->getValueByPath($path) ?? [];
@@ -134,7 +180,7 @@ class Validator extends Rule
 
 
             if (!$verified) {
-                
+
                 self::$errors[$field][] = self::getErrorMessage($rule->name, array_merge([$field], $rule->params));
             }
 
@@ -166,14 +212,14 @@ class Validator extends Rule
         self::$currentValidation->comparingFieldName = null;
         $path = self::$currentValidation->parentPath;
         $request = self::$request;
-        
+
         if ($formattedRule["params"]) {
             $formattedRule["params"] = array_map(
                 function ($param) use ($path, $request) {
-                    
+
                     $path = self::$currentValidation->parentPath;
                     $value = $request->getValueByPath(array_merge($path, [$param]));
-                    if($value){
+                    if ($value) {
                         self::$currentValidation->comparingFieldName = $param;
                         return $value;
                     }

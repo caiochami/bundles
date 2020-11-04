@@ -20,6 +20,7 @@ class Rule
    const MESSAGES = [
       "required" => "O campo %s é obrigatório",
       "required_if" => "O campo %s é obrigatório quando o campo %s conter o valor %s",
+      "required_with" => "O campo %s é obrigatório quando o campo %s estiver presente",
       "in" => "O campo %s não corresponde com as opções disponíveis",
       "notIn" => "O campo %s não deve corresponder com as opções",
       "string" => "O campo %s deve ser uma string",
@@ -77,6 +78,11 @@ class Rule
    public static function required($value)
    {
       return !empty($value) && !is_null($value);
+   }
+
+   public static function required_with($value)
+   {
+      return self::required($value);
    }
 
    public static function required_if($value)
