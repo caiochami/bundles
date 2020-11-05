@@ -11,62 +11,42 @@ namespace Bundles;
 
 use \PDO;
 
-use \Exception;
-
-use \Carbon\Carbon;
+use Carbon\Carbon;
 
 use Bundles\Collection;
+
+use \Exception;
 
 class Model
 {
 
     /**
-     * @var \PDO $conn
+     * @var PDO $conn
      */
 
     protected static $conn;
 
     /**
-     * @var array $where
+     * @var array $with
      */
+
+    protected static $with = [];
 
     protected static $where = [];
 
-    /**
-     * @var array $orWhere
-     */
-
     protected static $orWhere = [];
-
-    /**
-     * @var array $whereBetween
-     */
 
     protected static $whereBetween = [];
 
-    /**
-     * @var array $whereIn
-     */
-
     protected static $whereIn = [];
-
-    /**
-     * @var array $orderBy
-     */
 
     protected static $orderBy = [];
 
-    /**
-     * @var mixed $withCount
-     */
-
     protected static $withCount = null;
 
-    /**
-     * @var string $limit
-     */
-
     protected static $limit = "";
+
+    const ALLOWED_MYSQL_FUNCTIONS = ["NOW()", "CURRENT_DATE()", "CURRENT_TIMESTAMP()"];
 
     public function __construct($connection = null)
     {
@@ -93,7 +73,8 @@ class Model
     public static function setConnection(PDO $conn)
     {
         self::$conn = $conn;
-        self::clearWhereParams();
+        self::clearParams();
+
     }
 
     public static function all(PDO $conn, $conditions = "")
@@ -112,6 +93,10 @@ class Model
     //sets table alias to column if it was not specified
     private static function formatColumn(string $column): string
     {
+        if (in_array($column, self::ALLOWED_MYSQL_FUNCTIONS)) {
+            return $column;
+        }
+
         $tableAlias = self::getTableAlias();
 
         $formattedTableAlias = "";
@@ -126,10 +111,12 @@ class Model
 
     private static function formatValue($value)
     {
-        if (gettype($value) === "string") {
-            $value = "'" . $value . "'";
-        } else {
-            $value = (int) $value;
+        if(!in_array($value, self::ALLOWED_MYSQL_FUNCTIONS)){
+            if (gettype($value) === "string") {
+                $value = "'" . $value . "'";
+            } else {
+                $value = (int) $value;
+            }
         }
 
         return $value;
@@ -149,7 +136,6 @@ class Model
 
     public static function where(string $column, $value)
     {
-
         $totalArgs = func_num_args();
         $args = func_get_args();
 
@@ -204,10 +190,41 @@ class Model
         return new static;
     }
 
+    private static function columns()
+    {
+        $unformattedColumns = explode(",", static::$columns ?? []);
+
+        $columns = [];
+
+        foreach ($unformattedColumns as $unformattedColumn) {
+            $unformattedColumn = str_replace(" ", "", $unformattedColumn);
+            $formattedColumn = explode("AS", $unformattedColumn);
+            $columns[] = [
+                "column" => trim($formattedColumn[0]),
+                "alias" => $formattedColumn[1] ?? null
+            ];
+        }
+
+        return Collection::create($columns);
+    }
+
+    private static function isParamAColumn(string $param): bool
+    {
+        $isOk = self::columns()->find(function ($value) use ($param) {
+            return $value["column"] === $param;
+        });
+
+        return !is_null($isOk);
+    }
+
     public static function whereBetween(string $column, string $startsAt, string $endsAt)
     {
+        if(!self::isParamAColumn($startsAt)){
+            $startsAt = "'{$startsAt}'";
+            $endsAt = "'{$endsAt}'";
+        }
 
-        self::$whereBetween[] = self::formatColumn($column) . " BETWEEN '{$startsAt}' AND '{$endsAt}'";
+        self::$whereBetween[] = self::formatColumn($column) . " BETWEEN {$startsAt} AND {$endsAt}";
         return new static;
     }
 
@@ -240,7 +257,7 @@ class Model
             return $haystack + $length;
         });
 
-        $OPTIONS = $CHECK_IF_HAS_OPTIONS ? ( "WHERE 1=1 " . $WHERE . $OR_WHERE . $WHERE_IN . $WHERE_BETWEEN) : "";
+        $OPTIONS = $CHECK_IF_HAS_OPTIONS ? ("WHERE 1=1 " . $WHERE . $OR_WHERE . $WHERE_IN . $WHERE_BETWEEN) : "";
 
         $ORDER_BY = count(self::$orderBy) ? "ORDER BY " . implode(",", self::$orderBy) : "";
 
@@ -280,23 +297,25 @@ class Model
         if ($stmt->execute() && $stmt->rowCount()) {
 
             while ($resource = $stmt->fetch(PDO::FETCH_ASSOC)) {
+
                 $self = self::setProperties(new static(self::$conn), $resource);
+
                 array_push($collection, $self);
             }
 
             $stmt->closeCursor();
         }
 
+
+        self::clearParams();
+
         return new Collection($collection);
     }
 
     public static function with(array $relationships)
     {
-        foreach (self::$collection as $key => $item) {
-            foreach ($relationships as $key => $relationship) {
-                $item->{$relationship}();
-            }
-        }
+
+        self::$with = $relationships;
 
         return new static(self::$conn);
     }
@@ -313,7 +332,7 @@ class Model
     private static function setProperties($instance, array $data)
     {
         if (defined("CONNECTION_ID")) {
-            $instance->connection_id = CONNECTION_ID;
+            $instance->connection_id = intval(CONNECTION_ID);
         }
 
         if (defined("CONNECTION_NAME")) {
@@ -330,11 +349,23 @@ class Model
             }
         }
 
+
+        $relationships = self::$with;
+
+        foreach($relationships as $relationship){
+            if(method_exists($instance, $relationship)){
+                
+                $instance->{$relationship}();
+            }
+        }
+
         return $instance;
     }
 
-    private static function clearWhereParams()
+    private static function clearParams()
     {
+        //self::$with = [];
+
         self::$where = [];
 
         self::$orWhere = [];
@@ -418,14 +449,10 @@ class Model
 
         $values =  array_values($params);
 
-        $columns = array_keys($params);
-
         $updateParams = [];
 
-        $ALLOWED_MYSQL_FUNCTIONS = ['NOW()', 'CURRENT_DATE()', 'CURRENT_TIMESTAMP()'];
-
         foreach ($params as $key => $value) {
-            if (\gettype($value) === "string" && !in_array($value, $ALLOWED_MYSQL_FUNCTIONS)) {
+            if (\gettype($value) === "string" && !in_array($value, self::ALLOWED_MYSQL_FUNCTIONS)) {
                 $value = "'" . addslashes(strip_tags($value)) .  "'";
             }
             if ($key !== static::$key) $updateParams[] = "{$key} = ?";
@@ -553,8 +580,6 @@ class Model
 
     public function presentedTimestamp($column, $format = "d/m/Y H:i:s")
     {
-        return $this->{$column} ? 
-        Carbon::parse($this->{$column})->format($format) : 
-        null;
+        return $this->{$column} ? Carbon::parse($this->{$column})->format($format) : null;
     }
 }

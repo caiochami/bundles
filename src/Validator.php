@@ -36,10 +36,16 @@ class Validator extends Rule
     protected static $customMessages = [];
 
     /**
-     * @var \stdClass $currentValidation
+     * @var \stdClass $validation
      */
 
-    protected static $currentValidation;
+    protected static $validation;
+
+    /**
+     * @var array $rules
+     */
+
+     private static $rules = [];
 
     /**
      * @var array $errors
@@ -65,11 +71,13 @@ class Validator extends Rule
         self::$conn = $connection;
         self::$customMessages = $customMessages;
         self::$request = Collection::create($request, true);
-        self::$currentValidation = new \stdClass();
+        self::$validation = new \stdClass();
+        self::$rules = $rules;
 
         foreach ($rules as $field => $ruleSet) {
-            self::$currentValidation->fieldName = $field;
-            self::$currentValidation->ruleSet = $ruleSet;
+            self::$validation->fieldName = $field;
+            self::$validation->ruleSet = $ruleSet;
+            self::$validation->isNested = false;
             $dismemberedFields = self::dismemberField($field);
             self::handleFieldSet($dismemberedFields, $ruleSet);
         }
@@ -89,11 +97,17 @@ class Validator extends Rule
             $position++;
             $path[] = $index;
             $parentPath = array_slice($path, 0, $position - 1);
-
-            self::$currentValidation->fieldIndex = $index;
-            self::$currentValidation->parentPath = $parentPath;
+            
+            self::$validation->fieldIndex = $index;
+            self::$validation->parentPath = $parentPath;
 
             if ($index === "*" && in_array("*", $fieldSet)) {
+
+                self::$validation->isNested = true;
+
+                if(!self::checkIfParentIsFilled()){
+                    break;
+                }
 
                 $parentValue = $request->getValueByPath($parentPath);
                 if (gettype($parentValue) === "array") {
@@ -104,10 +118,11 @@ class Validator extends Rule
 
                     return;
                 } else {
-                    throw new \Exception("The value is not iterable");
+                   
+                    return;
                 }
             } else {
-                self::$currentValidation->currentPath = $path;
+                self::$validation->currentPath = $path;
                 $currentValue = $request->getValueByPath($path);
 
                 if ($position === $length) {
@@ -117,14 +132,24 @@ class Validator extends Rule
         }
     }
 
+    private static function checkIfParentIsFilled()
+    {
+        $path = self::$validation->parentPath;
+        $parentFieldName = implode(".", $path);
+        $parentValue = self::$request->getValueByPath($path);
+        $parentRules = self::$rules[$parentFieldName];
+        
+        return in_array("nullable", $parentRules) && gettype($parentValue) === "array" && count($parentValue) > 0;
+    }
+
     //run validation based on ruleset and field name provided
     private static function exec(array $ruleSet, string $field, $value): void
     {
 
         foreach ($ruleSet as $rule) {
             $rule = self::dismemberRule($rule);
-            self::$currentValidation->currentField = $field;
-            self::$currentValidation->currentRule = $rule->name;
+            self::$validation->currentField = $field;
+            self::$validation->currentRule = $rule->name;
 
             if (!method_exists(__CLASS__, $rule->name)) {
                 throw new \Exception('Rule "' . $rule->name . '" does not exists');
@@ -146,7 +171,7 @@ class Validator extends Rule
                 }
 
                 $rule->params = [
-                    self::$currentValidation->comparingFieldName,
+                    self::$validation->comparingFieldName,
                     $rule->params[1]
                 ];
             } elseif ($rule->name === "required_with") {
@@ -160,7 +185,7 @@ class Validator extends Rule
                 }
 
                 $rule->params = [
-                    self::$currentValidation->comparingFieldName,
+                    self::$validation->comparingFieldName,
                     $rule->params[0]
                 ];
             } elseif ($rule->name === "confirmed") {
@@ -168,8 +193,8 @@ class Validator extends Rule
                 $confirmationFieldValue = $rule->params[0] ?? null;
 
                 if (!$confirmationFieldValue) {
-                    $confirmationFieldName =  self::$currentValidation->fieldIndex . "_confirmation";
-                    $path = array_merge(self::$currentValidation->parentPath, [$confirmationFieldName]);
+                    $confirmationFieldName =  self::$validation->fieldIndex . "_confirmation";
+                    $path = array_merge(self::$validation->parentPath, [$confirmationFieldName]);
                     $confirmationFieldValue = self::$request->getValueByPath($path) ?? [];
                 }
 
@@ -209,18 +234,18 @@ class Validator extends Rule
     private static function dismemberRule(string $rule): \stdClass
     {
         $formattedRule = self::formatRule($rule);
-        self::$currentValidation->comparingFieldName = null;
-        $path = self::$currentValidation->parentPath;
+        self::$validation->comparingFieldName = null;
+        $path = self::$validation->parentPath;
         $request = self::$request;
 
         if ($formattedRule["params"]) {
             $formattedRule["params"] = array_map(
                 function ($param) use ($path, $request) {
 
-                    $path = self::$currentValidation->parentPath;
+                    $path = self::$validation->parentPath;
                     $value = $request->getValueByPath(array_merge($path, [$param]));
                     if ($value) {
-                        self::$currentValidation->comparingFieldName = $param;
+                        self::$validation->comparingFieldName = $param;
                         return $value;
                     }
                     return $param;

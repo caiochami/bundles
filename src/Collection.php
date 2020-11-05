@@ -85,7 +85,7 @@ class Collection
             }
         }
 
-        return false;
+        return null;
     }
 
     public function filterBy($idx, $val, string $operator = "eq") : self

@@ -7,6 +7,7 @@
  * This class handle all incoming http request data
  *
  */
+
 namespace Bundles;
 
 use Bundles\Validator;
@@ -20,7 +21,7 @@ class Request
     /**
      * @var \PDO $conn
      */
-    
+
     protected static $conn;
 
     public function __construct(PDO $conn = null)
@@ -33,9 +34,9 @@ class Request
         unset($_SESSION['input']);
 
         $data =
-        json_decode(file_get_contents('php://input'), true) ??
-        json_decode(json_encode($_REQUEST), true) ??
-        [];
+            json_decode(file_get_contents('php://input'), true) ??
+            json_decode(json_encode($_REQUEST), true) ??
+            [];
 
         self::$conn = $conn;
 
@@ -45,7 +46,7 @@ class Request
             $this->{$prop} = $content[$prop];
         }
     }
-    
+
     public function has($fieldName)
     {
         return isset($this->{$fieldName});
@@ -53,7 +54,8 @@ class Request
 
     public function filled($fieldName)
     {
-        return $this->has($fieldName) && (!is_null($this->{$fieldName}) && !empty($this->{$fieldName}));
+        return $this->has($fieldName) &&
+            ((!is_null($this->{$fieldName}) && !empty($this->{$fieldName})) || (gettype($fieldName) === "array" && count($this->{$fieldName}) > 0));
     }
 
     public function isJsonable()
@@ -61,7 +63,7 @@ class Request
         return isset($_SERVER['HTTP_CONTENT_TYPE']) && preg_match("/application\/json/i", $_SERVER['HTTP_CONTENT_TYPE']);
     }
 
-    public function only(array $indexes) : array
+    public function only(array $indexes): array
     {
         $arr = [];
 
@@ -78,14 +80,13 @@ class Request
 
     public function all()
     {
-        return json_decode(json_encode($this), true);
-        ;
+        return json_decode(json_encode($this), true);;
     }
 
-    public function validate(array $rules, array $customMessages = []) : array
+    public function validate(array $rules, array $customMessages = []): array
     {
         $validator = Validator::make($this->all(), $rules, self::$conn, $customMessages);
-    
+
         if ($validator->fails()) {
             http_response_code(422);
             if ($this->isJsonable()) {
