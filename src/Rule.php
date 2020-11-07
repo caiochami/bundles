@@ -13,6 +13,7 @@ namespace Bundles;
 use Bundles\DB;
 use Carbon\Carbon;
 use \Exception;
+use Bundles\Helper;
 
 class Rule
 {
@@ -163,7 +164,7 @@ class Rule
 
    public static function date_format($value, $params)
    {
-      return isDateValid($value, $params[0]);
+      return Helper::isDate($value, $params[0]);
    }
 
    public static function array($value)

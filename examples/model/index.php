@@ -17,7 +17,7 @@ $action = $_GET["action"] ?? "store";
 $id = $_GET["id"] ?? null;
 $user = null;
 
-if($action === "update" && isset($id)){
+if ($action === "update" && isset($id)) {
   $user = User::find($connection, $id);
 }
 
@@ -25,6 +25,7 @@ $name = $user->name ?? $_SESSION["input"]["name"] ?? null;
 $email = $user->email ?? $_SESSION["input"]["email"] ?? null;
 $age = $user->age ?? $_SESSION["input"]["age"] ?? null;
 $gender = $user->gender ?? $_SESSION["input"]["gender"] ?? null;
+$birthday = $user->birthday ?? $_SESSION["input"]["birthday"] ?? null;
 
 ?>
 <!DOCTYPE html>
@@ -68,8 +69,8 @@ $gender = $user->gender ?? $_SESSION["input"]["gender"] ?? null;
       <?php } ?>
 
       <form action="handle.php" method="POST" class="max-w-lg  mt-2">
-        <input type="hidden" name="action" value="<?=$action?>">
-        <input type="hidden" name="id" value="<?=$id?>">
+        <input type="hidden" name="action" value="<?= $action ?>">
+        <input type="hidden" name="id" value="<?= $id ?>">
         <div class="flex flex-wrap -mx-3 mb-6">
           <div class="w-full md:w-1/2 px-3 mb-6 md:mb-0">
             <label class="block uppercase tracking-wide text-gray-700 text-xs font-bold mb-2" for="grid-first-name">
@@ -126,6 +127,16 @@ $gender = $user->gender ?? $_SESSION["input"]["gender"] ?? null;
             </div>
           </div>
           <div class="w-full md:w-1/3 px-3 mb-6 md:mb-0">
+            <div class="w-full px-3">
+              <label class="block uppercase tracking-wide text-gray-700 text-xs font-bold mb-2" for="grid-password">
+                Birthday
+              </label>
+              <input 
+              value="<?=$birthday?>"
+              name="birthday" class="appearance-none block w-full bg-gray-200 text-gray-700 border border-gray-200 rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white focus:border-gray-500" id="grid-birthday" type="date" />
+            </div>
+          </div>
+          <div class="w-full px-3 mb-6 md:mb-0">
             <button class="px-4 py-2 bg-blue-500 text-white mt-6" type="submit">
               Enviar
             </button>
