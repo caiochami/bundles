@@ -21,7 +21,7 @@ $request->validate([
   "email" => ["required", "email"],
   "gender" => ["required", "string", "in:male,female"],
   "age" => ["required", "string"],
-  "birthday" => ["required", "date_format:Y-m-d"],
+  "birthday" => ["required", "date_format:Y-m-d", "before:2020-11-07"],
   "password" => ["required", "string", "confirmed"],
   "action" => ["required", "string", "in:store,update"]
 ]);

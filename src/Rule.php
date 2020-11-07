@@ -31,13 +31,16 @@ class Rule
       "url" => "O campo %s não é uma URL válida",
       "email" => "O campo %s não é um endereço de e-mail válido",
       "date_format" => "O campo %s deve ser uma data com formato %s",
+      "after" => "O campo %s deve ser uma data posterior a %s",
+      "before" => "O campo %s deve ser uma data anterior a %s",
+      "before_or_equal" => "O campo %s deve ser uma data anterior ou igual a data %s",
+      "after_or_equal" => "O campo %s deve ser uma data posterior ou igual a data %s",
       "digits" => "O valor do campo %s deve contér até %d dígitos",
       "digits_between" => "O valor do campo %s deve ser entre %d e %d",
       "minimum" => "O campo %s deve possuir no mínimo %d caractéres",
       "maximum" => "O campo %s deve possuir no máximo %d caractéres",
       "exists" => "O valor do campo %s não existe nos nossos registros",
-      "before_or_equal" => "O campo %s deve ser uma data anterior ou igual a data %s",
-      "after_or_equal" => "O campo %s deve ser uma data posterior ou igual a data %s",
+
       "gte" => "O tamanho do campo %s deve ser maior ou igual a %s",
       "lte" => "O tamanho do campo %s deve ser menor ou igual a %s",
       "gt" => "O tamanho do campo %s deve ser maior que %s",
@@ -143,9 +146,8 @@ class Rule
    public static function before_or_equal($value, $params)
    {
       try {
-         $value = Carbon::parse($value);
-         $date = Carbon::parse($params[0]);
-         return $value->lte($date);
+         $dates = Helper::convertToCarbon($value, $params[0]);
+         return $dates[0]->lte($dates[1]);
       } catch (\Throwable $th) {
          return false;
       }
@@ -154,9 +156,28 @@ class Rule
    public static function after_or_equal($value, $params)
    {
       try {
-         $value = Carbon::parse($value);
-         $date = Carbon::parse($params[0]);
-         return $value->gte($date);
+         $dates = Helper::convertToCarbon($value, $params[0]);
+         return $dates[0]->gte($dates[1]);
+      } catch (\Throwable $th) {
+         return false;
+      }
+   }
+
+   public static function before($value, $params)
+   {
+      try {
+         $dates = Helper::convertToCarbon($value, $params[0]);
+         return $dates[0]->lt($dates[1]);
+      } catch (\Throwable $th) {
+         return false;
+      }
+   }
+
+   public static function after($value, $params)
+   {
+      try {
+         $dates = Helper::convertToCarbon($value, $params[0]);
+         return $dates[0]->gt($dates[1]);
       } catch (\Throwable $th) {
          return false;
       }
@@ -166,6 +187,10 @@ class Rule
    {
       return Helper::isDate($value, $params[0]);
    }
+
+
+
+
 
    public static function array($value)
    {

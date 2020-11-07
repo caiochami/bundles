@@ -133,7 +133,8 @@ $birthday = $user->birthday ?? $_SESSION["input"]["birthday"] ?? null;
               </label>
               <input 
               value="<?=$birthday?>"
-              name="birthday" class="appearance-none block w-full bg-gray-200 text-gray-700 border border-gray-200 rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white focus:border-gray-500" id="grid-birthday" type="date" />
+              name="birthday" class="appearance-none block w-full bg-gray-200 text-gray-700 border border-gray-200 rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white focus:border-gray-500" id="grid-birthday" 
+              type="date" />
             </div>
           </div>
           <div class="w-full px-3 mb-6 md:mb-0">
