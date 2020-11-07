@@ -18,7 +18,7 @@ require "vendor/autoload.php";
 
 The Request class works similarly to the laravel validation.
 If errors are found, it will display the information in json format.
-Its behavior changes when no "Content-Type: application/json" is present in headers. It will redirect to the previous page with the errors and the request data attached to the $_SESSION variable.
+Its behavior changes when no "Content-Type: application/json" is present in the headers. It will redirect to the previous page with the errors and the request data attached to the $_SESSION variable.
 
 1. Instantiate the class Request. Passing in a PDO instance is required when using the rule "exists".
 2. Specify the rules
@@ -61,6 +61,9 @@ $request->validate([
     "patients" => ["required", "array", "gte:1"],
     "patients.*.name" => ["required", "string"],
     "patients.*.age" => ["required", "integer"]
+],
+[
+    "required" => "The field %s is required"
 ]);
 
 
