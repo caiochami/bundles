@@ -201,6 +201,14 @@ class Validator extends Rule
                 $rule->params[0] = $confirmationFieldValue;
             }
 
+            elseif($rule->name === "exists"){
+
+                $rule->params = [
+                    $rule->params[0],
+                    self::$validation->comparingFieldName,
+                ];
+            }
+
             $verified = self::{$rule->name}($value, $rule->params);
 
 

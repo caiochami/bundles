@@ -39,7 +39,8 @@ class DatabaseConnection
             $this->conn->setAttribute(PDO::MYSQL_ATTR_USE_BUFFERED_QUERY, true);
             //$connection->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         } catch (PDOException $exception) {
-            echo "Connection error: " . $exception->getMessage();
+            die("Connection error: " . $exception->getMessage());
+
         }
 
         return $this->conn;
@@ -53,7 +54,6 @@ class DatabaseConnection
 
     public static function attempt(array $attributes)
     {
-
         $self = new self($attributes);
         return $self->getConnection();
     }

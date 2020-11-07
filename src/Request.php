@@ -98,6 +98,7 @@ class Request
                 $_SESSION['input'] = $this->all();
                 $_SESSION['errors'] = $validator->errors();
                 header('Location: ' . $_SERVER['HTTP_REFERER']);
+                die();
             }
         }
 

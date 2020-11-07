@@ -74,7 +74,6 @@ class Model
     {
         self::$conn = $conn;
         self::clearParams();
-
     }
 
     public static function all(PDO $conn, $conditions = "")
@@ -111,7 +110,7 @@ class Model
 
     private static function formatValue($value)
     {
-        if(!in_array($value, self::ALLOWED_MYSQL_FUNCTIONS)){
+        if (!in_array($value, self::ALLOWED_MYSQL_FUNCTIONS)) {
             if (gettype($value) === "string") {
                 $value = "'" . $value . "'";
             } else {
@@ -199,8 +198,13 @@ class Model
         foreach ($unformattedColumns as $unformattedColumn) {
             $unformattedColumn = str_replace(" ", "", $unformattedColumn);
             $formattedColumn = explode("AS", $unformattedColumn);
-            $columns[] = [
-                "column" => trim($formattedColumn[0]),
+            $column = trim($formattedColumn[0]);
+            $dismemberedColumn = explode(".",$column);
+            $fieldName = $dismemberedColumn[1] ?? $dismemberedColumn[0];
+            
+            $columns[$fieldName] = [
+                "field_name" =>  $fieldName,
+                "column" => $column,
                 "alias" => $formattedColumn[1] ?? null
             ];
         }
@@ -210,16 +214,16 @@ class Model
 
     private static function isParamAColumn(string $param): bool
     {
-        $isOk = self::columns()->find(function ($value) use ($param) {
+        $isColumn = self::columns()->find(function ($value) use ($param) {
             return $value["column"] === $param;
         });
 
-        return !is_null($isOk);
+        return !is_null($isColumn);
     }
 
     public static function whereBetween(string $column, string $startsAt, string $endsAt)
     {
-        if(!self::isParamAColumn($startsAt)){
+        if (!self::isParamAColumn($startsAt)) {
             $startsAt = "'{$startsAt}'";
             $endsAt = "'{$endsAt}'";
         }
@@ -352,9 +356,9 @@ class Model
 
         $relationships = self::$with;
 
-        foreach($relationships as $relationship){
-            if(method_exists($instance, $relationship)){
-                
+        foreach ($relationships as $relationship) {
+            if (method_exists($instance, $relationship)) {
+
                 $instance->{$relationship}();
             }
         }
@@ -410,15 +414,15 @@ class Model
 
         $columns = array_keys($data);
 
-        $updateParams = [];
+        $params = [];
 
         foreach ($data as $key => $value) {
-            if ($key !== static::$key) $updateParams[] = "{$key} = {$value}";
+            if ($key !== static::$key) $params[] = "{$key} = {$value}";
         };
 
         self::setConnection($conn);
 
-        return $sql = "INSERT INTO " . static::$tableName . " (" . implode(",", $columns) . ") ON DUPLICATE KEY UPDATE " . implode(",", $updateParams);
+        return $sql = "INSERT INTO " . static::$tableName . " (" . implode(",", $columns) . ") ON DUPLICATE KEY UPDATE " . implode(",", $params);
 
         foreach ($values as $key => $value) {
             $values[$key] = htmlspecialchars(strip_tags($value));
@@ -440,28 +444,24 @@ class Model
         return false;
     }
 
-    public static function update(PDO $conn, int $id, array $params)
+    public static function update(PDO $conn, int $id, array $data)
     {
 
-        if (!$id) {
-            throw new Exception("id is required");
-        }
+        $data = self::filterData($data);
 
-        $values =  array_values($params);
+        $params = [];
+        $values = [];
 
-        $updateParams = [];
-
-        foreach ($params as $key => $value) {
-            if (\gettype($value) === "string" && !in_array($value, self::ALLOWED_MYSQL_FUNCTIONS)) {
-                $value = "'" . addslashes(strip_tags($value)) .  "'";
+        foreach ($data as $key => $value) {
+            if ($key !== static::$key){
+                $params[] = "{$key} = ?";
+                $values[] = $value;
             }
-            if ($key !== static::$key) $updateParams[] = "{$key} = ?";
         };
 
         self::setConnection($conn);
 
-        $sql = "UPDATE " . self::getTableName() . " SET " . implode(", ", $updateParams) . " WHERE  " . self::getKeyName() . " = " . $id;
-
+        $sql = "UPDATE " . self::getTableName() . " SET " . implode(", ", $params) . " WHERE  " . self::getKeyName() . " = " . $id;
         $stmt = self::$conn->prepare($sql);
 
         if ($stmt->execute($values)) {
@@ -492,11 +492,39 @@ class Model
         return count($tableNameArr) > 1 ? $tableNameArr[1] : null;
     }
 
+    private static function filterData(array $data) : array{
+        $params = [];
+
+        $columns = self::columns()->get();
+
+        $keys = array_keys($data); 
+
+        foreach($columns as $column){
+            $fieldName = $column["field_name"];
+
+            if(in_array($fieldName, $keys)){
+                $value = $data[$fieldName];
+
+                /*  if (\gettype($value) === "string" && !in_array($value, self::ALLOWED_MYSQL_FUNCTIONS)) {
+                    $value = "'" . addslashes(strip_tags($value)) .  "'";
+                } */
+
+                $params[$fieldName] = $value;
+            }
+        }
+
+        return $params;
+
+
+    }
+
     public static function create(PDO $conn, array $data)
     {
-        $values =  array_values($data);
+        $params = self::filterData($data);
 
-        $columns = array_keys($data);
+        $values =  array_values($params);
+
+        $columns = array_keys($params);
 
         self::setConnection($conn);
 
@@ -504,7 +532,7 @@ class Model
 
         $sql = "INSERT INTO " . $tableName . " (" . implode(",", $columns) . ")";
 
-        $bindValues = array_map(function ($val) {
+        $bindValues = array_map(function () {
             return "?";
         }, $values);
 
@@ -519,6 +547,8 @@ class Model
             $stmt->closeCursor();
             return self::find($connection, $id);
         }
+
+        die(var_dump($stmt->errorInfo()));
 
         return false;
     }

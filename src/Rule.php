@@ -224,7 +224,6 @@ class Rule
 
    public static function exists($value, $params)
    {
-
       $connection = static::$conn;
 
       if (!$connection) {
