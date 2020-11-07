@@ -22,7 +22,7 @@ class Validator extends Rule
      */
 
     protected static $conn;
-    
+
     /**
      * @var \Bundles\Collection $request
      */
@@ -32,7 +32,7 @@ class Validator extends Rule
     /**
      * @var array $customMessages
      */
-    
+
     protected static $customMessages = [];
 
     /**
@@ -45,7 +45,7 @@ class Validator extends Rule
      * @var array $rules
      */
 
-     private static $rules = [];
+    private static $rules = [];
 
     /**
      * @var array $errors
@@ -97,7 +97,7 @@ class Validator extends Rule
             $position++;
             $path[] = $index;
             $parentPath = array_slice($path, 0, $position - 1);
-            
+
             self::$validation->fieldIndex = $index;
             self::$validation->parentPath = $parentPath;
 
@@ -105,7 +105,7 @@ class Validator extends Rule
 
                 self::$validation->isNested = true;
 
-                if(!self::checkIfParentIsFilled()){
+                if (!self::checkIfParentIsFilled()) {
                     break;
                 }
 
@@ -118,7 +118,7 @@ class Validator extends Rule
 
                     return;
                 } else {
-                   
+
                     return;
                 }
             } else {
@@ -138,7 +138,7 @@ class Validator extends Rule
         $parentFieldName = implode(".", $path);
         $parentValue = self::$request->getValueByPath($path);
         $parentRules = self::$rules[$parentFieldName];
-        
+
         return in_array("nullable", $parentRules) && gettype($parentValue) === "array" && count($parentValue) > 0;
     }
 
@@ -171,7 +171,7 @@ class Validator extends Rule
                 }
 
                 $rule->params = [
-                    self::$validation->comparingFieldName,
+                    self::$validation->comparingFieldName ?? $rule->params[0],
                     $rule->params[1]
                 ];
             } elseif ($rule->name === "required_with") {
@@ -199,13 +199,11 @@ class Validator extends Rule
                 }
 
                 $rule->params[0] = $confirmationFieldValue;
-            }
-
-            elseif($rule->name === "exists"){
+            } elseif ($rule->name === "exists") {
 
                 $rule->params = [
                     $rule->params[0],
-                    self::$validation->comparingFieldName,
+                    self::$validation->comparingFieldName ?? $rule->params[1],
                 ];
             }
 

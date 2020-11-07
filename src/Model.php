@@ -196,7 +196,7 @@ class Model
         $columns = [];
 
         foreach ($unformattedColumns as $unformattedColumn) {
-            $unformattedColumn = str_replace(" ", "", $unformattedColumn);
+            $unformattedColumn = str_replace([" as " , " AS "], [ "AS", "AS" ] , $unformattedColumn);
             $formattedColumn = explode("AS", $unformattedColumn);
             $column = trim($formattedColumn[0]);
             $dismemberedColumn = explode(".",$column);
@@ -496,6 +496,8 @@ class Model
         $params = [];
 
         $columns = self::columns()->get();
+
+        var_dump($columns);
 
         $keys = array_keys($data); 
 
