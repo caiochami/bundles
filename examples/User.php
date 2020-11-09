@@ -11,4 +11,12 @@ class User extends Model
     protected static $joins = "";
 
     protected static $key = "id";
+
+    public $address;
+
+    public function address()
+    {
+        $this->address = Address::use(self::$conn)->where("id", $this->address_id)->retrieve()->first();
+        return $this->address;
+    }
 }

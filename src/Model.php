@@ -424,9 +424,24 @@ class Model
 
     public static function createOrUpdate(PDO $conn, array $data)
     {
-        $values =  array_values($data);
+        self::setConnection($conn);
 
-        $columns = array_keys($data);
+        $data = self::filterData($data);
+
+        $updateParams = [];
+        $insertColumns = [];
+        $insertValues = [];
+        $values = [];
+
+        foreach ($data as $key => $value) {
+            if ($key !== static::$key){
+                $updateParams[] = "{$key} = ?";
+                $insertColumns[] = $key;
+                $insertValues[] = "?";
+                
+                $values[] = addSlashes($value);
+            }
+        };
 
         $params = [];
 
@@ -434,26 +449,18 @@ class Model
             if ($key !== static::$key) $params[] = "{$key} = {$value}";
         };
 
-        self::setConnection($conn);
-
-        return $sql = "INSERT INTO " . static::$tableName . " (" . implode(",", $columns) . ") ON DUPLICATE KEY UPDATE " . implode(",", $params);
-
-        foreach ($values as $key => $value) {
-            $values[$key] = htmlspecialchars(strip_tags($value));
-        }
-
-        $bindValues = array_map(function ($val) {
-            return "?";
-        }, $values);
-
-        $sql .= "VALUES (" . implode(",", $bindValues) . ")";
+        $sql = 
+        "INSERT INTO " . static::getTableName() . " (" . implode(",", $insertColumns) . ")
+        VALUES ( " . implode(",", $insertValues) . " ) ON DUPLICATE KEY UPDATE " . implode(",", $updateParams);
 
         $stmt = self::$conn->prepare($sql);
 
-        if ($stmt->execute($values)) {
+        if ($stmt->execute(array_merge($values, $values))) {
             $id = self::lastInsertedId();
             return self::find(self::$conn, $id);
         }
+
+        var_dump($stmt->errorInfo());
 
         return false;
     }
@@ -463,6 +470,8 @@ class Model
         self::setConnection($conn);
 
         $data = self::filterData($data);
+
+        
 
         $params = [];
         $values = [];

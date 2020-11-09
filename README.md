@@ -70,7 +70,7 @@ $request->validate([
 
 ## The Model Class
 
-Let's suppose we a have table users with an id and a name column.
+Let's assume we have a users table with an id and a name column.
 The model class have all the methods you need to create, update, delete and query entries.
 Check out the following code:
 
@@ -86,9 +86,9 @@ Check out the following code:
 
     protected static $tableName = "users";
 
-    protected static $columns = "id,name";
+    protected static $columns = "id,name,address.city";
 
-    protected static $joins = "";
+    protected static $joins = "INNER JOIN addresses address ON address.id = users.address_id";
 
     protected static $key = "id";
 
@@ -148,3 +148,5 @@ Check out the following code:
  
 
 ```
+
+For more examples, check out the examples/ folder

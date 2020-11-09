@@ -43,7 +43,7 @@ class Request
         $content = Collection::create((array) $data, true)->get();
 
         foreach ($content as $prop => $value) {
-            $this->{$prop} = $content[$prop];
+            $this->{$prop} = $value;
         }
     }
 
@@ -56,6 +56,13 @@ class Request
     {
         return $this->has($fieldName) &&
             ((!is_null($this->{$fieldName}) && !empty($this->{$fieldName})) || (gettype($fieldName) === "array" && count($this->{$fieldName}) > 0));
+    }
+
+    public function merge(array $array) :void
+    {
+        foreach($array as $key => $value){
+            $this->{$key} = $value;
+        }
     }
 
     public function isJsonable()

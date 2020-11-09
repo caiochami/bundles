@@ -3,8 +3,9 @@
 error_reporting(-1);
 ini_set("display_errors", "On");
 
-require "../../vendor/autoload.php";
+require "../vendor/autoload.php";
 
+include "./Address.php";
 include "./User.php";
 include "./connection.php";
 
@@ -23,9 +24,12 @@ $request->validate([
   "age" => ["required", "string"],
   "birthday" => ["required", "date_format:Y-m-d", "before:2020-11-07"],
   "password" => ["required", "string", "confirmed"],
-  "action" => ["required", "string", "in:store,update"]
+  "action" => ["required", "string", "in:store,update"],
+  "city" => ["required", "string", "minimum:5"]
 ]);
 
+$address = Address::createOrUpdate($connection, ["city" => $request->city]);
+$request->merge(["address_id" => $address->id]);
 
 if ($request->action === "update") {
   $user = User::update($connection, (int) $request->id, $request->all());

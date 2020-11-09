@@ -4,14 +4,16 @@ use Bundles\DatabaseConnection;
 
 session_start();
 
-require "../../vendor/autoload.php";
+require "../vendor/autoload.php";
 
 include "./connection.php";
+include "./Address.php";
 include "./User.php";
 
 $connection = DatabaseConnection::attempt($db_params);
 
-$users = User::all($connection);
+$users = User::use($connection)->with(["address"])->retrieve();
+$addresses = Address::use($connection)->retrieve();
 
 $action = $_GET["action"] ?? "store";
 $id = $_GET["id"] ?? null;
@@ -26,6 +28,7 @@ $email = $user->email ?? $_SESSION["input"]["email"] ?? null;
 $age = $user->age ?? $_SESSION["input"]["age"] ?? null;
 $gender = $user->gender ?? $_SESSION["input"]["gender"] ?? null;
 $birthday = $user->birthday ?? $_SESSION["input"]["birthday"] ?? null;
+$city = $user->address->city ?? $_SESSION["input"]["city"] ?? null;
 
 ?>
 <!DOCTYPE html>
@@ -137,7 +140,17 @@ $birthday = $user->birthday ?? $_SESSION["input"]["birthday"] ?? null;
               type="date" />
             </div>
           </div>
+          <div class="w-full px-3">
+              <label class="block uppercase tracking-wide text-gray-700 text-xs font-bold mb-2" for="grid-password">
+                City
+              </label>
+              <input 
+              value="<?=$city?>"
+              name="city" class="appearance-none block w-full bg-gray-200 text-gray-700 border border-gray-200 rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white focus:border-gray-500" id="grid-birthday" 
+              type="text" />
+            </div>
           <div class="w-full px-3 mb-6 md:mb-0">
+          
             <button class="px-4 py-2 bg-blue-500 text-white mt-6" type="submit">
               Enviar
             </button>
@@ -145,13 +158,36 @@ $birthday = $user->birthday ?? $_SESSION["input"]["birthday"] ?? null;
         </div>
       </form>
     </div>
+    <table class="table-auto">
+      <thead>
+        <tr>
+          <th class="px-4 py-2">Id</th>
 
+          <th class="px-4 py-2">City</th>
+
+        </tr>
+      </thead>
+      <tbody>
+        <?php if (!$addresses->count()) { ?>
+          <tr>
+            <td class="border px-4 py-2 ">No data found</td>
+          </tr> <?php } ?>
+        <?php foreach ($addresses->get() as $address) { ?>
+          <tr>
+            <td class="border px-4 py-2"><?= $address->id ?></td>
+            <td class="border px-4 py-2"><?= $address->city ?></td>
+
+          </tr>
+        <?php } ?>
+      </tbody>
+    </table>
 
     <table class="table-auto">
       <thead>
         <tr>
           <th class="px-4 py-2">Id</th>
           <th class="px-4 py-2">Name</th>
+          <th class="px-4 py-2">City</th>
           <th class="px-4 py-2">E-Mail</th>
           <th class="px-4 py-2">Age</th>
           <th class="px-4 py-2">Gender</th>
@@ -169,6 +205,7 @@ $birthday = $user->birthday ?? $_SESSION["input"]["birthday"] ?? null;
           <tr>
             <td class="border px-4 py-2"><?= $user->id ?></td>
             <td class="border px-4 py-2"><?= $user->name ?></td>
+            <td class="border px-4 py-2"><?= $user->address->city ?></td>
             <td class="border px-4 py-2"><?= $user->email ?></td>
             <td class="border px-4 py-2"><?= $user->age ?></td>
             <td class="border px-4 py-2"><?= $user->gender ?></td>
