@@ -191,8 +191,22 @@ class Model
 
     private static function columns()
     {
-        $unformattedColumns = explode(",", static::$columns ?? []);
 
+        if(static::$columns === "*"){
+            $sql = "SHOW COLUMNS FROM " . self::getTableName() . "; ";
+            $stmt = self::$conn->prepare($sql);
+            $stmt->execute();
+            $data = [];
+            while ($resource = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $data[] = $resource["Field"];
+            }
+            $stmt->closeCursor();
+            $unformattedColumns = $data;
+        }else{
+            $unformattedColumns = explode(",", static::$columns ?? "");
+        }
+
+        
         $columns = [];
 
         foreach ($unformattedColumns as $unformattedColumn) {
@@ -446,6 +460,7 @@ class Model
 
     public static function update(PDO $conn, int $id, array $data)
     {
+        self::setConnection($conn);
 
         $data = self::filterData($data);
 
@@ -458,8 +473,6 @@ class Model
                 $values[] = $value;
             }
         };
-
-        self::setConnection($conn);
 
         $sql = "UPDATE " . self::getTableName() . " SET " . implode(", ", $params) . " WHERE  " . self::getKeyName() . " = " . $id;
         $stmt = self::$conn->prepare($sql);
@@ -497,8 +510,6 @@ class Model
 
         $columns = self::columns()->get();
 
-        var_dump($columns);
-
         $keys = array_keys($data); 
 
         foreach($columns as $column){
@@ -522,13 +533,13 @@ class Model
 
     public static function create(PDO $conn, array $data)
     {
+        self::setConnection($conn);
+
         $params = self::filterData($data);
 
         $values =  array_values($params);
 
         $columns = array_keys($params);
-
-        self::setConnection($conn);
 
         $tableName = self::getTableName();
 
@@ -549,8 +560,6 @@ class Model
             $stmt->closeCursor();
             return self::find($connection, $id);
         }
-
-        die(var_dump($stmt->errorInfo()));
 
         return false;
     }

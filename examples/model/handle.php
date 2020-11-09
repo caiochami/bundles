@@ -34,4 +34,5 @@ if ($request->action === "update") {
   $user = User::create($connection, $request->all());
   $message = urlencode("User created successfully");
 }
+
 header("Location: index.php?message=" . $message);
