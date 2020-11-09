@@ -199,11 +199,14 @@ class Validator extends Rule
                 }
 
                 $rule->params[0] = $confirmationFieldValue;
-            } elseif ($rule->name === "exists") {
+            } elseif ($rule->name === "exists" || $rule->name === "unique") {
 
                 $rule->params = [
                     $rule->params[0],
                     self::$validation->comparingFieldName ?? $rule->params[1],
+                    self::getConnection(),
+                    $rule->params[2] ?? null,
+                    $rule->params[3] ?? null,
                 ];
             }
 
@@ -212,11 +215,22 @@ class Validator extends Rule
 
             if (!$verified) {
 
-                self::$errors[$field][] = self::getErrorMessage($rule->name, array_merge([$field], $rule->params));
+                self::$errors[$field][] = self::getErrorMessage($rule->name, array_merge([$field], $rule->params), self::$customMessages);
             }
 
             self::$validated[$field] = $value;
         }
+    }
+
+    private static function getConnection()
+    {
+        $connection = static::$conn;
+
+        if (!$connection) {
+            throw new Exception('Connection was not set');
+        }
+
+        return $connection;
     }
 
     private static function dismemberField(string $field): array

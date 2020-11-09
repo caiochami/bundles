@@ -4,14 +4,13 @@
  * @author Caio Chami
  * @since 2020-10-19
  * 
- * Subject: "Rules" 
+ * Subject: 'Rules' 
  * 
  */
 
 namespace Bundles;
 
 use Bundles\DB;
-use Carbon\Carbon;
 use \Exception;
 use Bundles\Helper;
 
@@ -19,40 +18,40 @@ class Rule
 {
 
    const MESSAGES = [
-      "required" => "O campo %s é obrigatório",
-      "required_if" => "O campo %s é obrigatório quando o campo %s conter o valor %s",
-      "required_with" => "O campo %s é obrigatório quando o campo %s estiver presente",
-      "in" => "O campo %s não corresponde com as opções disponíveis",
-      "notIn" => "O campo %s não deve corresponder com as opções",
-      "string" => "O campo %s deve ser uma string",
-      "array" => "O campo %s deve ser um array",
-      "integer" => "O campo %s deve ser um valor inteiro",
-      "boolean" => "O campo %s deve ser um valor boleano",
-      "url" => "O campo %s não é uma URL válida",
-      "email" => "O campo %s não é um endereço de e-mail válido",
-      "date_format" => "O campo %s deve ser uma data com formato %s",
-      "after" => "O campo %s deve ser uma data posterior a %s",
-      "before" => "O campo %s deve ser uma data anterior a %s",
-      "before_or_equal" => "O campo %s deve ser uma data anterior ou igual a data %s",
-      "after_or_equal" => "O campo %s deve ser uma data posterior ou igual a data %s",
-      "digits" => "O valor do campo %s deve contér até %d dígitos",
-      "digits_between" => "O valor do campo %s deve ser entre %d e %d",
-      "minimum" => "O campo %s deve possuir no mínimo %d caractéres",
-      "maximum" => "O campo %s deve possuir no máximo %d caractéres",
-      "exists" => "O valor do campo %s não existe nos nossos registros",
-
-      "gte" => "O tamanho do campo %s deve ser maior ou igual a %s",
-      "lte" => "O tamanho do campo %s deve ser menor ou igual a %s",
-      "gt" => "O tamanho do campo %s deve ser maior que %s",
-      "lt" => "O tamanho do campo %s deve ser menor que %s",
-      "confirmed" => "O campo %s não pôde ser confirmado"
+      'required' => 'O campo %s é obrigatório',
+      'required_if' => 'O campo %s é obrigatório quando o campo %s conter o valor %s',
+      'required_with' => 'O campo %s é obrigatório quando o campo %s estiver presente',
+      'in' => 'O campo %s não corresponde com as opções disponíveis',
+      'notIn' => 'O campo %s não deve corresponder com as opções',
+      'string' => 'O campo %s deve ser uma string',
+      'array' => 'O campo %s deve ser um array',
+      'integer' => 'O campo %s deve ser um valor inteiro',
+      'boolean' => 'O campo %s deve ser um valor boleano',
+      'url' => 'O campo %s não é uma URL válida',
+      'email' => 'O campo %s não é um endereço de e-mail válido',
+      'date_format' => 'O campo %s deve ser uma data com formato %s',
+      'after' => 'O campo %s deve ser uma data posterior a %s',
+      'before' => 'O campo %s deve ser uma data anterior a %s',
+      'before_or_equal' => 'O campo %s deve ser uma data anterior ou igual a data %s',
+      'after_or_equal' => 'O campo %s deve ser uma data posterior ou igual a data %s',
+      'digits' => 'O valor do campo %s deve contér até %d dígitos',
+      'digits_between' => 'O valor do campo %s deve ser entre %d e %d',
+      'minimum' => 'O campo %s deve possuir no mínimo %d caractéres',
+      'maximum' => 'O campo %s deve possuir no máximo %d caractéres',
+      'exists' => 'O valor do campo %s não existe nos nossos registros',
+      'unique' => 'Registro existente nos nossos registros',
+      'gte' => 'O tamanho do campo %s deve ser maior ou igual a %s',
+      'lte' => 'O tamanho do campo %s deve ser menor ou igual a %s',
+      'gt' => 'O tamanho do campo %s deve ser maior que %s',
+      'lt' => 'O tamanho do campo %s deve ser menor que %s',
+      'confirmed' => 'O campo %s não pôde ser confirmado'
    ];
 
-   public static function getErrorMessage($ruleName, $params)
+   public static function getErrorMessage($ruleName, $params, $customMessages = [])
    {
       $message = self::MESSAGES[$ruleName];
-      if (count(static::$customMessages) && array_key_exists($ruleName, static::$customMessages)) {
-         $message = static::$customMessages[$ruleName];
+      if (count($customMessages) && array_key_exists($ruleName, $customMessages)) {
+         $message = $customMessages[$ruleName];
       }
 
       return vsprintf($message, $params);
@@ -140,7 +139,7 @@ class Rule
 
    public static function url($value): bool
    {
-      return preg_match("/\b(?:(?:https?|ftp):\/\/|www\.)[-a-z0-9+&@#\/%?=~_|!:,.;]*[-a-z0-9+&@#\/%=~_|]/i", $value) ? true : false;
+      return preg_match('/\b(?:(?:https?|ftp):\/\/|www\.)[-a-z0-9+&@#\/%?=~_|!:,.;]*[-a-z0-9+&@#\/%=~_|]/i', $value) ? true : false;
    }
 
    public static function before_or_equal($value, $params)
@@ -248,18 +247,26 @@ class Rule
       return $value === $params[0];
    }
 
+   public static function unique($value, $params)
+   {
+      return !self::exists($value, $params);
+   }
+
    public static function exists($value, $params)
    {
-      $connection = static::$conn;
-
-      if (!$connection) {
-         throw new Exception('Connection was not set');
-      }
+      [$table, $column, $connection, $ignore] = $params;
 
       $exists = DB::use($connection)
-         ->table($params[0])
-         ->select([$params[1]])
-         ->where($params[1], $value)
+         ->table($table)
+         ->select([$column]);
+
+      if ($ignore) {
+         $exists = $exists->where($column, "!=", $ignore);
+      }
+
+      $exists = $exists->where($column, $value);
+
+      $exists = $exists
          ->retrieve()
          ->exists();
 
