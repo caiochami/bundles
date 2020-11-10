@@ -3,7 +3,7 @@
 error_reporting(-1);
 ini_set("display_errors", "On");
 
-require "../../vendor/autoload.php";
+require "../vendor/autoload.php";
 
 include "./User.php";
 include "./connection.php";
