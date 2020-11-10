@@ -44,7 +44,7 @@ class Model
 
     protected static $withCount = null;
 
-    protected static $limit = "";
+    protected static $limit = null;
 
     const ALLOWED_MYSQL_FUNCTIONS = ["NOW()", "CURRENT_DATE()", "CURRENT_TIMESTAMP()"];
 
@@ -192,7 +192,7 @@ class Model
     private static function columns()
     {
 
-        if(static::$columns === "*"){
+        if (static::$columns === "*") {
             $sql = "SHOW COLUMNS FROM " . self::getTableName() . "; ";
             $stmt = self::$conn->prepare($sql);
             $stmt->execute();
@@ -202,20 +202,20 @@ class Model
             }
             $stmt->closeCursor();
             $unformattedColumns = $data;
-        }else{
+        } else {
             $unformattedColumns = explode(",", static::$columns ?? "");
         }
 
-        
+
         $columns = [];
 
         foreach ($unformattedColumns as $unformattedColumn) {
-            $unformattedColumn = str_replace([" as " , " AS "], [ "AS", "AS" ] , $unformattedColumn);
+            $unformattedColumn = str_replace([" as ", " AS "], ["AS", "AS"], $unformattedColumn);
             $formattedColumn = explode("AS", $unformattedColumn);
             $column = trim($formattedColumn[0]);
-            $dismemberedColumn = explode(".",$column);
+            $dismemberedColumn = explode(".", $column);
             $fieldName = $dismemberedColumn[1] ?? $dismemberedColumn[0];
-            
+
             $columns[$fieldName] = [
                 "field_name" =>  $fieldName,
                 "column" => $column,
@@ -279,7 +279,7 @@ class Model
 
         $ORDER_BY = count(self::$orderBy) ? "ORDER BY " . implode(",", self::$orderBy) : "";
 
-        $LIMIT = self::$limit ? "LIMIT " . self::$limit : "";
+        $LIMIT = self::$limit ?? "";
 
         return $OPTIONS . " " . $ORDER_BY . " " . $LIMIT;
     }
@@ -287,19 +287,23 @@ class Model
     public static function limit($value)
     {
         self::$limit = $value;
+
+        if (gettype($value) === "integer") {
+            self::$limit = "LIMIT " . $value;
+        }
+
         return new static;
     }
 
     public static function withCount($column = null)
     {
-
         $column = $column ? self::formatColumn($column) : static::$key;
         self::$withCount = $column;
         static::$columns .= " , COUNT( " . $column . " ) AS with_count ";
         return new static;
     }
 
-    public static function retrieve()
+    public static function retrieve($options = ['debug' => false])
     {
         if (!self::$conn) {
             throw new Exception('Connection was not set');
@@ -309,6 +313,12 @@ class Model
 
         $stmt = self::$conn->prepare($sql);
         $stmt->execute();
+
+        $debug = $options['debug'] ?? false;
+
+        if ($debug) {
+            var_dump($stmt->errorInfo());
+        }
 
         $collection = [];
 
@@ -338,12 +348,12 @@ class Model
         return new static(self::$conn);
     }
 
-    public static function find(PDO $conn, int $id)
+    public static function find(PDO $conn, int $id, $options = [])
     {
         self::setConnection($conn);
         $id = htmlspecialchars(strip_tags($id));
 
-        $collection = self::fetch('WHERE ' . static::$key . ' = ' . $id, '', 'LIMIT 0,1');
+        $collection = self::fetch('WHERE ' . static::$key . ' = ' . $id, '', 'LIMIT 0,1', $options);
         return count($collection) ? $collection[0] : null;
     }
 
@@ -358,7 +368,6 @@ class Model
         }
 
         foreach ($data as $key => $value) {
-
             if (\preg_match("/\_id/i", $key) || $key === "id") {
                 $value = intval($data[$key]);
                 $instance->{$key} = $value > 0 ? $value : null;
@@ -399,7 +408,7 @@ class Model
         self::$limit = "";
     }
 
-    private static function fetch($conditions = "", $sort = "", $limit = "")
+    private static function fetch($conditions = "", $sort = "", $limit = "", $options = ['debug' => false])
     {
         // select all query
 
@@ -419,6 +428,12 @@ class Model
             $stmt->closeCursor();
         }
 
+        $debug = boolVal($options['debug'] ?? false);
+
+        if ($debug) {
+            var_dump($stmt->errorInfo());
+        }
+
         return $collection;
     }
 
@@ -434,11 +449,11 @@ class Model
         $values = [];
 
         foreach ($data as $key => $value) {
-            if ($key !== static::$key){
+            if ($key !== static::$key) {
                 $updateParams[] = "{$key} = ?";
                 $insertColumns[] = $key;
                 $insertValues[] = "?";
-                
+
                 $values[] = addSlashes($value);
             }
         };
@@ -449,8 +464,8 @@ class Model
             if ($key !== static::$key) $params[] = "{$key} = {$value}";
         };
 
-        $sql = 
-        "INSERT INTO " . static::getTableName() . " (" . implode(",", $insertColumns) . ")
+        $sql =
+            "INSERT INTO " . static::getTableName() . " (" . implode(",", $insertColumns) . ")
         VALUES ( " . implode(",", $insertValues) . " ) ON DUPLICATE KEY UPDATE " . implode(",", $updateParams);
 
         $stmt = self::$conn->prepare($sql);
@@ -471,13 +486,13 @@ class Model
 
         $data = self::filterData($data);
 
-        
+
 
         $params = [];
         $values = [];
 
         foreach ($data as $key => $value) {
-            if ($key !== static::$key){
+            if ($key !== static::$key) {
                 $params[] = "{$key} = ?";
                 $values[] = $value;
             }
@@ -514,17 +529,18 @@ class Model
         return count($tableNameArr) > 1 ? $tableNameArr[1] : null;
     }
 
-    private static function filterData(array $data) : array{
+    private static function filterData(array $data): array
+    {
         $params = [];
 
         $columns = self::columns()->get();
 
-        $keys = array_keys($data); 
+        $keys = array_keys($data);
 
-        foreach($columns as $column){
+        foreach ($columns as $column) {
             $fieldName = $column["field_name"];
 
-            if(in_array($fieldName, $keys)){
+            if (in_array($fieldName, $keys)) {
                 $value = $data[$fieldName];
 
                 /*  if (\gettype($value) === "string" && !in_array($value, self::ALLOWED_MYSQL_FUNCTIONS)) {
@@ -536,8 +552,6 @@ class Model
         }
 
         return $params;
-
-
     }
 
     public static function create(PDO $conn, array $data)

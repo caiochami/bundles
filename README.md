@@ -145,7 +145,16 @@ Check out the following code:
  ->limit(15)
  ->retrieve()
  ->get();
- 
+
+//for debugging you can pass an array just like this
+User::find($connection, 1, ["debug" => true]);
+
+//or 
+
+User::where("birthday", ">", "1972-11-11")
+->orderBy(["name", "DESC"])
+->retrieve(["debug" => true])
+->get(); 
 
 ```
 

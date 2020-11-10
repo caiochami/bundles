@@ -58,9 +58,9 @@ class Request
             ((!is_null($this->{$fieldName}) && !empty($this->{$fieldName})) || (gettype($fieldName) === "array" && count($this->{$fieldName}) > 0));
     }
 
-    public function merge(array $array) :void
+    public function merge(array $array): void
     {
-        foreach($array as $key => $value){
+        foreach ($array as $key => $value) {
             $this->{$key} = $value;
         }
     }
@@ -96,16 +96,21 @@ class Request
 
         if ($validator->fails()) {
             http_response_code(422);
+
+            $response = [
+                'message' => 'Erros encontrados',
+                'errors' => $validator->errors()
+            ];
+
             if ($this->isJsonable()) {
-                die(json_encode([
-                    'message' => 'Erros encontrados',
-                    'errors' => $validator->errors()
-                ]));
+                die(json_encode($response));
             } else {
                 $_SESSION['input'] = $this->all();
                 $_SESSION['errors'] = $validator->errors();
-                header('Location: ' . $_SERVER['HTTP_REFERER']);
-               
+                if (isset($_SERVER['HTTP_REFERER'])) {
+                    header('Location: ' . $_SERVER['HTTP_REFERER']);
+                }
+                die(print_r($response));
             }
         }
 
