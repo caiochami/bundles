@@ -16,6 +16,8 @@ use Bundles\Collection;
 
 use \PDO;
 
+header('Access-Control-Allow-Origin: *');
+
 class Request
 {
     /**

@@ -113,14 +113,13 @@ class Validator extends Rule
                 if (gettype($parentValue) === "array") {
                     $remainingPath = array_slice($fieldSet, $position);
                     foreach ($parentValue as $key => $el) {
+                        
                         self::handleFieldSet(array_merge($parentPath, [$key], $remainingPath), $ruleSet);
+                       
                     }
 
-                    return;
-                } else {
-
-                    return;
-                }
+                    
+                } return;
             } else {
                 self::$validation->currentPath = $path;
                 $currentValue = $request->getValueByPath($path);
