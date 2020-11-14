@@ -88,9 +88,13 @@ class Validator extends Rule
     private static function handleFieldSet(array $fieldSet, array $ruleSet)
     {
         $request = self::$request;
+
+
         $length = count($fieldSet);
         $path = [];
         $position = 0;
+
+
 
         foreach ($fieldSet as $key => $index) {
 
@@ -98,8 +102,12 @@ class Validator extends Rule
             $path[] = $index;
             $parentPath = array_slice($path, 0, $position - 1);
 
+            
+
             self::$validation->fieldIndex = $index;
             self::$validation->parentPath = $parentPath;
+
+
 
             if ($index === "*" && in_array("*", $fieldSet)) {
 
@@ -109,19 +117,20 @@ class Validator extends Rule
                     break;
                 }
 
+           
+
                 $parentValue = $request->getValueByPath($parentPath);
                 if (gettype($parentValue) === "array") {
                     $remainingPath = array_slice($fieldSet, $position);
                     foreach ($parentValue as $key => $el) {
-                        
-                        self::handleFieldSet(array_merge($parentPath, [$key], $remainingPath), $ruleSet);
-                       
-                    }
 
-                    
-                } return;
+                        self::handleFieldSet(array_merge($parentPath, [$key], $remainingPath), $ruleSet);
+                    }
+                }
+                return;
             } else {
                 self::$validation->currentPath = $path;
+                
                 $currentValue = $request->getValueByPath($path);
 
                 if ($position === $length) {
@@ -138,7 +147,9 @@ class Validator extends Rule
         $parentValue = self::$request->getValueByPath($path);
         $parentRules = self::$rules[$parentFieldName];
 
-        return in_array("nullable", $parentRules) && gettype($parentValue) === "array" && count($parentValue) > 0;
+        $isNullable = in_array("nullable", $parentRules) && is_null($parentValue);
+
+        return !$isNullable && gettype($parentValue) === "array" && count($parentValue) > 0;
     }
 
     //run validation based on ruleset and field name provided
@@ -262,6 +273,7 @@ class Validator extends Rule
                 function ($param) use ($path, $request) {
 
                     $path = self::$validation->parentPath;
+
                     $value = $request->getValueByPath(array_merge($path, [$param]));
                     if ($value) {
                         self::$validation->comparingFieldName = $param;

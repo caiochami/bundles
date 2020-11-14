@@ -94,7 +94,7 @@ Check out the following code:
 
  }
 
- $connection = Database::connect([
+ $connection = Database::attempt([
     "db_host" =>  "HOST",
     "db_name" =>  "NAME",
     "db_user" =>  "USER",

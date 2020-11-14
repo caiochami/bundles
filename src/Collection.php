@@ -20,7 +20,7 @@ class Collection
         $this->collection = $data;
     }
 
-    public static function create(array $array, $convertEmptyStringsToNull = false) : self
+    public static function create(array $array, $convertEmptyStringsToNull = false): self
     {
         if ($convertEmptyStringsToNull) {
             $array = self::convertElements($array, function ($value) {
@@ -35,7 +35,7 @@ class Collection
     }
 
 
-    public static function convertElements(array &$array, \Closure $closure, bool $deep = true) : array
+    public static function convertElements(array &$array, \Closure $closure, bool $deep = true): array
     {
         foreach ($array as $key => &$value) {
             if (gettype($value) === "array" && $deep) {
@@ -53,22 +53,22 @@ class Collection
      * 
      * usage: $data =  [
      *     "patient" => [
-     *         "name" => "Caio CHami"
+     *         "name" => "Foobar"
      *     ]
      * ];
      * 
      * $collection->getValueByPath(["patient", "name"]);
      * 
-     * output: "Caio Chami"
+     * output: "Foobar"
      *
      */
-    public function getValueByPath(array $path)
+    public function getValueByPath($path)
     {
+
         $getArrayPath = function (array $path, array $array) {
-            $callable = function (array $stack, $item) {
-                return (
-                array_key_exists($item, $stack)
-              ) ? $stack[$item] : null;
+            $callable = function ($stack, $item) {
+                if(gettype($stack) !== "array") return null;
+                return array_key_exists($item, $stack) ? $stack[$item] : null;
             };
 
             return array_reduce($path, $callable, $array);
@@ -88,10 +88,10 @@ class Collection
         return null;
     }
 
-    public function filterBy($idx, $val, string $operator = "eq") : self
+    public function filterBy($idx, $val, string $operator = "eq"): self
     {
         $callable = [
-            "present" => static function($item, $prop) : bool {
+            "present" => static function ($item, $prop): bool {
                 return isset($item[$prop]);
             },
             "eq" => static function ($item, $prop, $value): bool {
@@ -155,7 +155,7 @@ class Collection
     public function first($idx = null)
     {
         $element = array_shift($this->collection);
-        
+
         if (!is_null($idx) && gettype($element) === "array") {
             $idxType = gettype($idx);
             if ($idxType === "string") {
@@ -179,7 +179,7 @@ class Collection
         return $this->first() ? true : false;
     }
 
-    public function pluck(string $column, $args = []) : array
+    public function pluck(string $column, $args = []): array
     {
         $customIndex = $args["custom_index"] ?? null;
         $unique = $args["unique"] ?? false;
@@ -191,14 +191,14 @@ class Collection
 
             $value = $type === "object" ? $item->{$column} : $value = $item[$column];
             $index = $customIndex ? ($type === "object" ? $item->{$customIndex} : $value = $item[$customIndex]) : $key;
-            
+
             $array[$index] = $value;
         }
 
-        if($unique){
+        if ($unique) {
             return array_unique($array);
         }
-       
+
         return $array;
     }
 

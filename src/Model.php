@@ -46,11 +46,18 @@ class Model
 
     protected static $limit = null;
 
+    private static $tableName = null;
+
+    private static $columns = null;
+
+    private static $joins = null;
+
+    private static $key = null;
+
     const ALLOWED_MYSQL_FUNCTIONS = ["NOW()", "CURRENT_DATE()", "CURRENT_TIMESTAMP()"];
 
     public function __construct($connection = null)
     {
-
         if ($connection) {
             self::$conn = $connection;
         }
@@ -70,8 +77,21 @@ class Model
         return $sql;
     }
 
+    private static function checkIfStaticPropertiesExists()
+    {
+        foreach (["tableName", "columns", "joins", "key"] as $mandatoryProperty) {
+            var_dump(static::$$mandatoryProperty);
+            if (!isset(static::$$mandatoryProperty)) {
+                throw new Exception('Child class ' . get_called_class() . ' failed to define static ' . $mandatoryProperty . ' property');
+            }
+
+            self::$$mandatoryProperty = static::$$mandatoryProperty;
+        }
+    }
+
     public static function setConnection(PDO $conn)
     {
+        self::checkIfStaticPropertiesExists();
         self::$conn = $conn;
         self::clearParams();
     }
@@ -288,6 +308,7 @@ class Model
     {
         self::$limit = $value;
 
+
         if (gettype($value) === "integer") {
             self::$limit = "LIMIT " . $value;
         }
@@ -309,40 +330,13 @@ class Model
             throw new Exception('Connection was not set');
         }
 
-        $sql = self::getSql();
+        //self::clearParams();
 
-        $stmt = self::$conn->prepare($sql);
-        $stmt->execute();
-
-        $debug = $options['debug'] ?? false;
-
-        if ($debug) {
-            var_dump($stmt->errorInfo());
-        }
-
-        $collection = [];
-
-        if ($stmt->execute() && $stmt->rowCount()) {
-
-            while ($resource = $stmt->fetch(PDO::FETCH_ASSOC)) {
-
-                $self = self::setProperties(new static(self::$conn), $resource);
-
-                array_push($collection, $self);
-            }
-
-            $stmt->closeCursor();
-        }
-
-
-        self::clearParams();
-
-        return new Collection($collection);
+        return new Collection(self::fetch("", "", "", $options));
     }
 
     public static function with(array $relationships)
     {
-
         self::$with = $relationships;
 
         return new static(self::$conn);
