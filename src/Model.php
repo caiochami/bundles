@@ -80,7 +80,7 @@ class Model
     private static function checkIfStaticPropertiesExists()
     {
         foreach (["tableName", "columns", "joins", "key"] as $mandatoryProperty) {
-            var_dump(static::$$mandatoryProperty);
+           
             if (!isset(static::$$mandatoryProperty)) {
                 throw new Exception('Child class ' . get_called_class() . ' failed to define static ' . $mandatoryProperty . ' property');
             }
