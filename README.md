@@ -92,6 +92,8 @@ Check out the following code:
 
     protected static $key = "id";
 
+    protected static $fillable = [ "name" ];
+
  }
 
  $connection = Database::attempt([

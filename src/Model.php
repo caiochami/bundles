@@ -54,6 +54,8 @@ class Model
 
     private static $key = null;
 
+    private static $fillable = [];
+
     const ALLOWED_MYSQL_FUNCTIONS = ["NOW()", "CURRENT_DATE()", "CURRENT_TIMESTAMP()"];
 
     public function __construct($connection = null)
@@ -86,6 +88,12 @@ class Model
             }
 
             self::$$mandatoryProperty = static::$$mandatoryProperty;
+        }
+
+        $fillable = static::$fillable;
+
+        if(isset($fillable) && gettype($fillable) === "array"){
+            self::$fillable = $fillable;
         }
     }
 
@@ -480,8 +488,6 @@ class Model
 
         $data = self::filterData($data);
 
-
-
         $params = [];
         $values = [];
 
@@ -537,10 +543,6 @@ class Model
             if (in_array($fieldName, $keys)) {
                 $value = $data[$fieldName];
 
-                /*  if (\gettype($value) === "string" && !in_array($value, self::ALLOWED_MYSQL_FUNCTIONS)) {
-                    $value = "'" . addslashes(strip_tags($value)) .  "'";
-                } */
-
                 $params[$fieldName] = $value;
             }
         }
@@ -548,11 +550,13 @@ class Model
         return $params;
     }
 
+    
+
     public static function create(PDO $conn, array $data)
     {
         self::setConnection($conn);
 
-        $params = self::filterData($data);
+        $params = self::filterData($data);        
 
         $values =  array_values($params);
 
@@ -623,13 +627,21 @@ class Model
     {
         $array = [];
 
-        foreach ($this->fields as $field) {
-            $array[$field] = $this->{$field};
+
+        if(count(self::$fillable)){
+            foreach (self::$fillable as $field) {
+                $array[$field] = $this->{$field};
+            }
+        }
+        else{
+            throw new Exception("Fillable property is required");
         }
 
         $connection = self::$conn;
 
-        if ($this->id) {
+        var_dump($array);
+
+        if (isset($this->id) && !is_null($this->id)) {
             return self::update($connection, $this->id, $array);
         } else {
             return self::create($connection, $array);
@@ -638,6 +650,16 @@ class Model
 
     public function presentedTimestamp($column, $format = "d/m/Y H:i:s")
     {
-        return $this->{$column} ? Carbon::parse($this->{$column})->format($format) : null;
+        if(isset($this->{$column})){
+
+            try {
+                return Carbon::parse($this->{$column})->format($format);
+            } catch (\Throwable $th) {
+                return null;
+            }
+            
+        } 
+
+        return null;
     }
 }
