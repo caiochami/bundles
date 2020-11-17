@@ -67,7 +67,7 @@ class Collection
 
         $getArrayPath = function (array $path, array $array) {
             $callable = function ($stack, $item) {
-                if(gettype($stack) !== "array") return null;
+                if (gettype($stack) !== "array") return null;
                 return array_key_exists($item, $stack) ? $stack[$item] : null;
             };
 
@@ -118,21 +118,35 @@ class Collection
             "ne" => static function ($item, $prop, $value): bool {
                 return $item[$prop] !== $value;
             },
-            "whereCountIsGreaterThan" => static function ($item, $prop, $value = 0): bool {
-                return count((array) $item[$prop]) > $value;
-            },
-            "contains" => static function ($item, $prop, $value): bool {
-                return \in_array($item[$prop], (array) $value, true);
-            },
-            "notContains" => static function ($item, $prop, $value): bool {
-                return !\in_array($item[$prop], (array) $value, true);
-            },
             "newer" => static function ($item, $prop, $value): bool {
-                return \strtotime($item[$prop]) > \strtotime($value);
+                return strtotime($item[$prop]) > strtotime($value);
             },
             "older" => static function ($item, $prop, $value): bool {
-                return \strtotime($item[$prop]) < \strtotime($value);
+                return strtotime($item[$prop]) < strtotime($value);
             },
+            "whereCountIsGreaterThan" => static function ($item, $prop, $value = 0): bool {
+                $item = json_decode(json_encode($item), true);
+                return count((array) $item[$prop]) > $value;
+            },
+            "whereCountIsLesserThan" => static function ($item, $prop, $value = 0): bool {
+                $item = json_decode(json_encode($item), true);
+                return count((array) $item[$prop]) < $value;
+            },
+            "whereCountIsGreaterOrEqual" => static function ($item, $prop, $value = 0): bool {
+                $item = json_decode(json_encode($item), true);
+                return count((array) $item[$prop]) >= $value;
+            },
+            "whereCountIsLesserOrEqual" => static function ($item, $prop, $value = 0): bool {
+                $item = json_decode(json_encode($item), true);
+                return count((array) $item[$prop]) <= $value;
+            },
+            "contains" => static function ($item, $prop, $value): bool {
+                return in_array($item[$prop], (array) $value, true);
+            },
+            "notContains" => static function ($item, $prop, $value): bool {
+                return !in_array($item[$prop], (array) $value, true);
+            },
+
         ];
 
         $array = array_values(
@@ -211,8 +225,13 @@ class Collection
         return count($this->collection);
     }
 
-    public function get()
+    public function get(callable $callable = null)
     {
-        return $this->collection;
+        $collection = $this->collection;
+        if ($callable) {
+            return $callable($collection);
+        }
+
+        return $collection;
     }
 }

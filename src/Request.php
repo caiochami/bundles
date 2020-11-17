@@ -89,7 +89,7 @@ class Request
 
     public function all()
     {
-        return json_decode(json_encode($this), true);;
+        return Collection::create($this)->get();
     }
 
     public function validate(array $rules, array $customMessages = []): array

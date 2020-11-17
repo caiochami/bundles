@@ -78,6 +78,11 @@ class Rule
       return true;
    }
 
+   public static function bail()
+   {
+      return true;
+   }
+
    public static function required($value)
    {
       return !empty($value) && !is_null($value);
@@ -264,9 +269,8 @@ class Rule
          $exists = $exists->where($column, "!=", $ignore);
       }
 
-      $exists = $exists->where($column, $value);
-
-      $exists = $exists
+      $exists =
+         $exists->where($column, $value)
          ->retrieve()
          ->exists();
 

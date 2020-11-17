@@ -46,6 +46,8 @@ class Model
 
     protected static $limit = null;
 
+    protected static $customJoins = [];
+
     private static $tableName = null;
 
     private static $columns = null;
@@ -54,7 +56,7 @@ class Model
 
     private static $key = null;
 
-    private static $fillable = [];
+    private static $groupBy = [];
 
     const ALLOWED_MYSQL_FUNCTIONS = ["NOW()", "CURRENT_DATE()", "CURRENT_TIMESTAMP()"];
 
@@ -69,11 +71,12 @@ class Model
     {
         $sql =
             "SELECT 
-        " . static::$columns . "
+        " . self::renderSelect() . "
         FROM 
-        " . static::$tableName . "
-        " . static::$joins . "
-        " . self::getConditions() . "
+        " . self::$tableName . "
+        " . self::renderJoins() . "
+        " . self::renderConditions() . "
+        " . self::renderGroupBy() . "
         {$conditions} {$sort} {$limit};";
 
         return $sql;
@@ -82,18 +85,12 @@ class Model
     private static function checkIfStaticPropertiesExists()
     {
         foreach (["tableName", "columns", "joins", "key"] as $mandatoryProperty) {
-           
+
             if (!isset(static::$$mandatoryProperty)) {
-                throw new Exception('Child class ' . get_called_class() . ' failed to define static ' . $mandatoryProperty . ' property');
+                throw new Exception('Class ' . get_called_class() . ' failed to define static ' . $mandatoryProperty . ' property');
             }
 
             self::$$mandatoryProperty = static::$$mandatoryProperty;
-        }
-
-        $fillable = static::$fillable;
-
-        if(isset($fillable) && gettype($fillable) === "array"){
-            self::$fillable = $fillable;
         }
     }
 
@@ -151,14 +148,99 @@ class Model
 
     public static function table(string $tableName)
     {
-        static::$tableName = $tableName;
+        self::$tableName = $tableName;
         return new static;
     }
 
-    public static function select(array $columns)
+    private static function formatJoinArgs(array $args): string
     {
-        static::$columns = implode(', ', $columns);
+        $length = count($args);
+
+        if ($length === 3) {
+            [$joinableTable, $firstColumn, $secondColumn] = $args;
+            return $joinableTable . " ON " . $firstColumn . " = " . $secondColumn;
+        } else if ($length === 4) {
+            [$joinableTable, $firstColumn, $operator, $secondColumn] = $args;
+            return $joinableTable . " ON " . $firstColumn . " " . $operator . " " . $secondColumn;
+        }
+
+        return "";
+    }
+
+    public static function join()
+    {
+        $args = func_get_args();
+
+        $join = self::formatJoinArgs($args);
+
+        self::$customJoins[] = "INNER JOIN " . $join;
+
         return new static;
+    }
+
+    public static function leftJoin()
+    {
+        $args = func_get_args();
+
+        $join = self::formatJoinArgs($args);
+
+        self::$customJoins[] = "LEFT JOIN " . $join;
+
+        return new static;
+    }
+
+    public static function rightJoin()
+    {
+        $args = func_get_args();
+
+        $join = self::formatJoinArgs($args);
+
+        self::$customJoins[] = "RIGHT JOIN " . $join;
+
+        return new static;
+    }
+
+    private static function renderJoins()
+    {
+        if (count(self::$customJoins)) {
+            return implode(" ", self::$customJoins);
+        }
+        return self::$joins;
+    }
+
+    private static function renderSelect()
+    {
+        return self::$columns;
+    }
+
+    public static function select(array $columnsSet): self
+    {
+        $columns = [];
+
+        foreach ($columnsSet as $set) {
+
+            if (gettype($set) === "array" && count($set) === 1) {
+                foreach ($set as $column => $alias) {
+                    $columns[] = $column . " " . $alias;
+                }
+            } else {
+                $columns[] = $set;
+            }
+        }
+
+        self::$columns = implode(', ', $columns);
+        return new static;
+    }
+
+    public static function groupBy(array $groupBy): self
+    {
+        self::$groupBy = $groupBy;
+        return new static;
+    }
+
+    private static function renderGroupBy()
+    {
+        return count(self::$groupBy) ? " GROUP BY " . implode(",", self::$groupBy) : "";
     }
 
     public static function where(string $column, $value)
@@ -220,7 +302,7 @@ class Model
     private static function columns()
     {
 
-        if (static::$columns === "*") {
+        if (self::$columns === "*") {
             $sql = "SHOW COLUMNS FROM " . self::getTableName() . "; ";
             $stmt = self::$conn->prepare($sql);
             $stmt->execute();
@@ -280,7 +362,7 @@ class Model
         return new static;
     }
 
-    private static function getConditions()
+    private static function renderConditions()
     {
         $WHERE_LENGTH = count(self::$where);
         $WHERE = $WHERE_LENGTH ? " AND " . implode(' AND ', self::$where) : "";
@@ -328,18 +410,12 @@ class Model
     {
         $column = $column ? self::formatColumn($column) : static::$key;
         self::$withCount = $column;
-        static::$columns .= " , COUNT( " . $column . " ) AS with_count ";
+        self::$columns .= " , COUNT( " . $column . " ) AS with_count ";
         return new static;
     }
 
-    public static function retrieve($options = ['debug' => false])
+    public static function retrieve($options = ['debug' => false, 'show_query' => false])
     {
-        if (!self::$conn) {
-            throw new Exception('Connection was not set');
-        }
-
-        //self::clearParams();
-
         return new Collection(self::fetch("", "", "", $options));
     }
 
@@ -408,11 +484,17 @@ class Model
         self::$withCount = null;
 
         self::$limit = "";
+
+        self::$groupBy = [];
+        
+        self::$customJoins = [];
     }
 
-    private static function fetch($conditions = "", $sort = "", $limit = "", $options = ['debug' => false])
+    private static function fetch($conditions = "", $sort = "", $limit = "", $options = ['debug' => false, 'show_query' => false])
     {
-        // select all query
+        if (!self::$conn) {
+            throw new Exception('Connection was not set');
+        }
 
         $sql = self::getSql($conditions, $sort, $limit);
 
@@ -431,6 +513,11 @@ class Model
         }
 
         $debug = boolVal($options['debug'] ?? false);
+        $showQuery = boolVal($options['show_query'] ?? false);
+
+        if ($showQuery) {
+            var_dump($sql);
+        }
 
         if ($debug) {
             var_dump($stmt->errorInfo());
@@ -463,11 +550,11 @@ class Model
         $params = [];
 
         foreach ($data as $key => $value) {
-            if ($key !== static::$key) $params[] = "{$key} = {$value}";
+            if ($key !== self::$key) $params[] = "{$key} = {$value}";
         };
 
         $sql =
-            "INSERT INTO " . static::getTableName() . " (" . implode(",", $insertColumns) . ")
+            "INSERT INTO " . self::getTableName() . " (" . implode(",", $insertColumns) . ")
         VALUES ( " . implode(",", $insertValues) . " ) ON DUPLICATE KEY UPDATE " . implode(",", $updateParams);
 
         $stmt = self::$conn->prepare($sql);
@@ -487,7 +574,6 @@ class Model
         self::setConnection($conn);
 
         $data = self::filterData($data);
-
         $params = [];
         $values = [];
 
@@ -510,7 +596,7 @@ class Model
 
     protected static function getKeyName()
     {
-        $arr =  explode('.', static::$key);
+        $arr =  explode('.', self::$key);
         if (count($arr) > 1) {
             return $arr[1];
         }
@@ -520,12 +606,12 @@ class Model
 
     protected static function getTableName()
     {
-        return explode(' ', static::$tableName)[0];
+        return explode(' ', self::$tableName)[0];
     }
 
     protected static function getTableAlias()
     {
-        $tableNameArr = explode(' ', static::$tableName);
+        $tableNameArr = explode(' ', self::$tableName);
         return count($tableNameArr) > 1 ? $tableNameArr[1] : null;
     }
 
@@ -543,6 +629,10 @@ class Model
             if (in_array($fieldName, $keys)) {
                 $value = $data[$fieldName];
 
+                /*  if (\gettype($value) === "string" && !in_array($value, self::ALLOWED_MYSQL_FUNCTIONS)) {
+                    $value = "'" . addslashes(strip_tags($value)) .  "'";
+                } */
+
                 $params[$fieldName] = $value;
             }
         }
@@ -550,13 +640,11 @@ class Model
         return $params;
     }
 
-    
-
     public static function create(PDO $conn, array $data)
     {
         self::setConnection($conn);
 
-        $params = self::filterData($data);        
+        $params = self::filterData($data);
 
         $values =  array_values($params);
 
@@ -627,21 +715,13 @@ class Model
     {
         $array = [];
 
-
-        if(count(self::$fillable)){
-            foreach (self::$fillable as $field) {
-                $array[$field] = $this->{$field};
-            }
-        }
-        else{
-            throw new Exception("Fillable property is required");
+        foreach ($this->fields as $field) {
+            $array[$field] = $this->{$field};
         }
 
         $connection = self::$conn;
 
-        var_dump($array);
-
-        if (isset($this->id) && !is_null($this->id)) {
+        if ($this->id) {
             return self::update($connection, $this->id, $array);
         } else {
             return self::create($connection, $array);
@@ -650,16 +730,6 @@ class Model
 
     public function presentedTimestamp($column, $format = "d/m/Y H:i:s")
     {
-        if(isset($this->{$column})){
-
-            try {
-                return Carbon::parse($this->{$column})->format($format);
-            } catch (\Throwable $th) {
-                return null;
-            }
-            
-        } 
-
-        return null;
+        return $this->{$column} ? Carbon::parse($this->{$column})->format($format) : null;
     }
 }
