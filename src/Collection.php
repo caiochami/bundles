@@ -20,8 +20,15 @@ class Collection
         $this->collection = $data;
     }
 
-    public static function create(array $array, $convertEmptyStringsToNull = false): self
+    public static function toArray($value) : array
     {
+        return json_decode(json_encode((array) $value), true);
+    }
+
+    public static function create($array, $convertEmptyStringsToNull = false): self
+    {
+        $array = self::toArray($array);
+
         if ($convertEmptyStringsToNull) {
             $array = self::convertElements($array, function ($value) {
                 if ($value === "") {
@@ -125,19 +132,19 @@ class Collection
                 return strtotime($item[$prop]) < strtotime($value);
             },
             "whereCountIsGreaterThan" => static function ($item, $prop, $value = 0): bool {
-                $item = json_decode(json_encode($item), true);
+                $item = self::toArray($item);
                 return count((array) $item[$prop]) > $value;
             },
             "whereCountIsLesserThan" => static function ($item, $prop, $value = 0): bool {
-                $item = json_decode(json_encode($item), true);
+                $item = self::toArray($item);
                 return count((array) $item[$prop]) < $value;
             },
             "whereCountIsGreaterOrEqual" => static function ($item, $prop, $value = 0): bool {
-                $item = json_decode(json_encode($item), true);
+                $item = self::toArray($item);
                 return count((array) $item[$prop]) >= $value;
             },
             "whereCountIsLesserOrEqual" => static function ($item, $prop, $value = 0): bool {
-                $item = json_decode(json_encode($item), true);
+                $item = self::toArray($item);
                 return count((array) $item[$prop]) <= $value;
             },
             "contains" => static function ($item, $prop, $value): bool {
@@ -225,7 +232,12 @@ class Collection
         return count($this->collection);
     }
 
-    public function get(callable $callable = null)
+    public function map(\Closure $callable)
+    {
+        return array_map($callable, $this->collection);
+    }
+
+    public function get(\Closure $callable = null)
     {
         $collection = $this->collection;
         if ($callable) {

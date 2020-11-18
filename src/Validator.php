@@ -103,7 +103,7 @@ class Validator extends Rule
             $path[] = $index;
             $parentPath = array_slice($path, 0, $position - 1);
 
-
+            
 
             self::$validation->fieldIndex = $index;
             self::$validation->parentPath = $parentPath;
@@ -118,7 +118,7 @@ class Validator extends Rule
                     break;
                 }
 
-
+           
 
                 $parentValue = $request->getValueByPath($parentPath);
                 if (gettype($parentValue) === "array") {
@@ -131,7 +131,7 @@ class Validator extends Rule
                 return;
             } else {
                 self::$validation->currentPath = $path;
-
+                
                 $currentValue = $request->getValueByPath($path);
 
                 if ($position === $length) {
@@ -166,8 +166,8 @@ class Validator extends Rule
                 throw new \Exception('Rule "' . $rule->name . '" does not exists');
             }
 
-
-            if (in_array('bail', self::$validation->ruleSet) && self::hasErrors()) {
+            
+            if(in_array('bail', self::$validation->ruleSet) && self::hasErrors()){
                 break;
             }
             //if the rule set has nullable rule, it will ignore other rules if the value is null
@@ -297,11 +297,11 @@ class Validator extends Rule
         return $rule;
     }
 
-    public static function hasErrors()
-    {
+    public static function hasErrors(){
         return  array_filter(self::$errors, function ($error) {
             return count($error);
         });
+
     }
 
     //retrieves all errors
@@ -321,12 +321,12 @@ class Validator extends Rule
     {
         $this->success = false;
 
-
+        //error counter
         $hasErrors =
             Collection::create(self::$errors)
             ->count();
 
-
+        //returns error
         if ($hasErrors > 0) {
             $this->success = true;
         }
