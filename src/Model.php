@@ -77,6 +77,8 @@ class Model
         " . self::renderJoins() . "
         " . self::renderConditions() . "
         " . self::renderGroupBy() . "
+        " . self::renderOrderBy() . "
+        " . self::renderLimit() . "
         {$conditions} {$sort} {$limit};";
 
         return $sql;
@@ -387,11 +389,20 @@ class Model
 
         $OPTIONS = $CHECK_IF_HAS_OPTIONS ? ("WHERE 1=1 " . $WHERE . $OR_WHERE . $WHERE_IN . $WHERE_BETWEEN) : "";
 
-        $ORDER_BY = count(self::$orderBy) ? "ORDER BY " . implode(",", self::$orderBy) : "";
 
-        $LIMIT = self::$limit ?? "";
 
-        return $OPTIONS . " " . $ORDER_BY . " " . $LIMIT;
+        
+
+        return $OPTIONS;
+    }
+
+    private static function renderLimit(){
+        return self::$limit ?? "";
+    }
+
+    private static function renderOrderBy()
+    {
+        return count(self::$orderBy) ? "ORDER BY " . implode(",", self::$orderBy) : "";
     }
 
     public static function limit($value)
