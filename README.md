@@ -133,6 +133,12 @@ class Address extends Model
    
     }
 
+    //mutator
+    
+    public function setCityAttribute($value){
+        return strtolower($value);
+    }
+
 
  }
 

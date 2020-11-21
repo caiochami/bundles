@@ -11,8 +11,6 @@ namespace Bundles;
 
 use \PDO;
 
-use Carbon\Carbon;
-
 use Bundles\Collection;
 
 use \Exception;
@@ -41,8 +39,6 @@ class Model
     protected static $whereIn = [];
 
     protected static $orderBy = [];
-
-    protected static $withCount = null;
 
     protected static $limit = null;
 
@@ -389,14 +385,11 @@ class Model
 
         $OPTIONS = $CHECK_IF_HAS_OPTIONS ? ("WHERE 1=1 " . $WHERE . $OR_WHERE . $WHERE_IN . $WHERE_BETWEEN) : "";
 
-
-
-        
-
         return $OPTIONS;
     }
 
-    private static function renderLimit(){
+    private static function renderLimit()
+    {
         return self::$limit ?? "";
     }
 
@@ -414,14 +407,6 @@ class Model
             self::$limit = "LIMIT " . $value;
         }
 
-        return new static;
-    }
-
-    public static function withCount($column = null)
-    {
-        $column = $column ? self::formatColumn($column) : static::$key;
-        self::$withCount = $column;
-        self::$columns .= " , COUNT( " . $column . " ) AS with_count ";
         return new static;
     }
 
@@ -446,6 +431,7 @@ class Model
         return count($collection) ? $collection[0] : null;
     }
 
+
     private static function setProperties($instance, array $data)
     {
         if (defined("CONNECTION_ID")) {
@@ -457,11 +443,19 @@ class Model
         }
 
         foreach ($data as $key => $value) {
-            if (\preg_match("/\_id/i", $key) || $key === "id") {
+
+            $mutator = "set" . ucfirst($key) . "Attribute";
+
+            if (method_exists(static::class, $mutator)) {
+                
+                $value = $instance->{$mutator}($value) ?? null;
+            }
+
+            if (\preg_match("/\_id/i", $key) || $key === "id" || $key === self::getKeyName()) {
                 $value = intval($data[$key]);
                 $instance->{$key} = $value > 0 ? $value : null;
             } else {
-                $instance->{$key} = $data[$key];
+                $instance->{$key} = $value;
             }
         }
 
@@ -492,12 +486,10 @@ class Model
 
         self::$orderBy = [];
 
-        self::$withCount = null;
-
         self::$limit = "";
 
         self::$groupBy = [];
-        
+
         self::$customJoins = [];
     }
 
@@ -509,32 +501,21 @@ class Model
 
         $sql = self::getSql($conditions, $sort, $limit);
 
-        $stmt = self::$conn->prepare($sql);
-        $stmt->execute();
+        return self::execute(function ($stmt, $options) {
 
-        $collection = [];
+            $collection = [];
 
-        if ($stmt->execute() && $stmt->rowCount()) {
-            while ($resource = $stmt->fetch(PDO::FETCH_ASSOC)) {
-                $self = self::setProperties(new static(self::$conn), $resource);
-                array_push($collection, $self);
+            if ($stmt->execute() && $stmt->rowCount()) {
+                while ($resource = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                    $self = self::setProperties(new static($options['connection']), $resource);
+                    array_push($collection, $self);
+                }
+
+                $stmt->closeCursor();
             }
 
-            $stmt->closeCursor();
-        }
-
-        $debug = boolVal($options['debug'] ?? false);
-        $showQuery = boolVal($options['show_query'] ?? false);
-
-        if ($showQuery) {
-            var_dump($sql);
-        }
-
-        if ($debug) {
-            var_dump($stmt->errorInfo());
-        }
-
-        return $collection;
+            return $collection;
+        }, array_merge($options, ['sql' => $sql]));
     }
 
     public static function createOrUpdate(PDO $conn, array $data)
@@ -580,7 +561,7 @@ class Model
         return false;
     }
 
-    public static function update(PDO $conn, int $id, array $data)
+    public static function update(PDO $conn, int $id, array $data, array $options = [])
     {
         self::setConnection($conn);
 
@@ -596,13 +577,18 @@ class Model
         };
 
         $sql = "UPDATE " . self::getTableName() . " SET " . implode(", ", $params) . " WHERE  " . self::getKeyName() . " = " . $id;
-        $stmt = self::$conn->prepare($sql);
 
-        if ($stmt->execute($values)) {
-            return true;
-        }
+        return self::execute(function ($stmt, $options) {
+            if ($stmt->execute($options['values'])) {
+                return self::find($options['connection'], $options['id']);
+            }
 
-        return false;
+            return false;
+        }, array_merge($options, [
+            'values' => $values,
+            'sql' => $sql,
+            'id' => $id
+        ]));
     }
 
     protected static function getKeyName()
@@ -640,9 +626,7 @@ class Model
             if (in_array($fieldName, $keys)) {
                 $value = $data[$fieldName];
 
-                /*  if (\gettype($value) === "string" && !in_array($value, self::ALLOWED_MYSQL_FUNCTIONS)) {
-                    $value = "'" . addslashes(strip_tags($value)) .  "'";
-                } */
+              
 
                 $params[$fieldName] = $value;
             }
@@ -651,7 +635,7 @@ class Model
         return $params;
     }
 
-    public static function create(PDO $conn, array $data)
+    public static function create(PDO $conn, array $data, $options = [])
     {
         self::setConnection($conn);
 
@@ -671,50 +655,75 @@ class Model
 
         $sql .= "VALUES (" . implode(",", $bindValues) . ")";
 
+        return self::execute(
+            function ($stmt, $options) {
+
+                if ($stmt->execute($options['values'])) {
+                    $id = self::lastInsertedId();
+                    $stmt->closeCursor();
+                    return self::find($options['connection'], $id);
+                }
+
+                return false;
+            },
+            array_merge($options, [
+                'sql' => $sql,
+                'values' => $values
+            ])
+        );
+    }
+
+    private static function execute(\Closure $closure, array $options = [])
+    {
         $connection = self::$conn;
 
-        $stmt = $connection->prepare($sql);
+        $stmt = $connection->prepare($options['sql']);
 
-        if ($stmt->execute($values)) {
-            $id = self::lastInsertedId();
-            $stmt->closeCursor();
-            return self::find($connection, $id);
+        $execution = $closure($stmt, array_merge($options, ['connection' => $connection]));
+
+        if (isset($options['debug']) && boolval($options['debug'])) {
+            var_dump($stmt->errorInfo());
         }
 
-        return false;
+        if (isset($options['show_query']) && boolval($options['show_query'])) {
+            var_dump($options['sql']);
+        }
+
+        return $execution;
     }
 
     private static function lastInsertedId()
     {
-        $sql = "SELECT MAX(" . static::$key . ") AS last_inserted_id FROM " . static::$tableName . "; ";
+        $sql = "SELECT MAX(" . self::getKeyName() . ") AS last_inserted_id FROM " . self::getTableName() . "; ";
 
-        $stmt = self::$conn->prepare($sql);
-
-        $stmt->execute();
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        $stmt->closeCursor();
-        return $row['last_inserted_id'];
+        return self::execute(function ($stmt) {
+            $stmt->execute();
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            $stmt->closeCursor();
+            return $row['last_inserted_id'];
+        }, ['sql' => $sql]);
     }
 
-    public static function destroy(PDO $conn, int $id)
+    public static function destroy(PDO $conn, int $id, array $options = [])
     {
 
         self::setConnection($conn);
 
         $sql =
             "DELETE FROM  
-        " . static::getTableName() . "
-        WHERE " . static::getKeyName() . " = ?;";
+        " . self::getTableName() . "
+        WHERE " . self::getKeyName() . " = ?;";
 
-        $stmt = self::$conn->prepare($sql);
+        return self::execute(function ($stmt, $options) {
 
-        $stmt->bindParam('1', $id, PDO::PARAM_INT);
+            $stmt->bindParam('1', $options['id'], PDO::PARAM_INT);
 
-        if ($stmt->execute()) {
-            return true;
-        }
-
-        return false;
+            if ($stmt->execute()) {
+                return true;
+            } else {
+                return false;
+            }
+        }, array_merge($options, ['sql' => $sql, 'id' => $id]));
     }
 
     public function delete()
@@ -722,25 +731,20 @@ class Model
         return self::destroy(self::$conn, $this->id);
     }
 
-    public function save()
+    public function save(array $options = [])
     {
-        $array = [];
+        $params = [];
 
         foreach ($this->fields as $field) {
-            $array[$field] = $this->{$field};
+            $params[$field] = $this->{$field};
         }
 
         $connection = self::$conn;
 
         if ($this->id) {
-            return self::update($connection, $this->id, $array);
+            return self::update($connection, $this->id, $params, $options);
         } else {
-            return self::create($connection, $array);
+            return self::create($connection, $params, $options);
         }
-    }
-
-    public function presentedTimestamp($column, $format = "d/m/Y H:i:s")
-    {
-        return $this->{$column} ? Carbon::parse($this->{$column})->format($format) : null;
     }
 }
