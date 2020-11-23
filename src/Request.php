@@ -58,14 +58,7 @@ class Request
     {
         return $this->has($fieldName) &&
             ((!is_null($this->{$fieldName}) && !empty($this->{$fieldName})) || (gettype($fieldName) === "array" && count($this->{$fieldName}) > 0));
-    }
-
-    public function merge(array $array): void
-    {
-        foreach ($array as $key => $value) {
-            $this->{$key} = $value;
-        }
-    }
+    }   
 
     public function isJsonable()
     {
@@ -74,18 +67,18 @@ class Request
 
     public function only(array $indexes): array
     {
-        $arr = [];
+        return Collection::create($this)->get(function ($collection) use ($indexes) {
+            $arr = [];
+            foreach ($collection as $key => $value) {
 
-        $content = $this->all();
-
-        foreach ($content as $key => $value) {
-            if (in_array($key, $indexes)) {
-                $arr[$key] = $content[$key];
+                if (in_array($key, $indexes)) {
+                    $arr[$key] = $value;
+                }
             }
-        }
-
-        return $arr;
+            return $arr;
+        });
     }
+
 
     public function all()
     {

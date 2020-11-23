@@ -173,6 +173,43 @@ class Collection
         return self::create($array);
     }
 
+    /**
+     * @var null|string|callable $key
+     */
+
+    public function unique($key = null)
+    {
+        if ($key) {
+
+            $type = gettype($key);
+
+            $i = 0;
+
+            $uniqueValues = [];
+            $verified = [];
+
+            foreach ($this->collection as $idx => $value) {
+                if ($type === 'function') {
+                    $uniqueValues[$i] = $key($value, $idx);
+                } else if ($type === 'string') {
+
+                    if (isset($value[$key]) && !in_array($value[$key], $verified)) {
+                        $verified[$i] = $value[$key];
+                        $uniqueValues[$i] = $value;
+                    }
+                }
+
+                $i++;
+            }
+
+            $data = $uniqueValues;
+        } else {
+            $data = array_unique($this->collection);
+        }
+
+        return new self($data);
+    }
+
     public function first($idx = null)
     {
         $element = array_shift($this->collection);
