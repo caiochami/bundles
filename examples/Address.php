@@ -6,7 +6,7 @@ class Address extends Model
 {
     protected static $tableName = "addresses address";
 
-    protected static $columns = "id, city";//"id,email,password,name,age,gender,created_at,updated_at";
+    protected static $columns = "*";//"id,email,password,name,age,gender,created_at,updated_at";
 
     protected static $joins = "";
 
