@@ -92,8 +92,6 @@ Check out the following code:
 
     protected static $key = "id";
 
-    protected static $fillable = [ "name" ];
-
     public function addresses(){
         $addresses = DB::use(self::$conn)
         ->table('addresses')

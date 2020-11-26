@@ -297,19 +297,24 @@ class Model
         return new static;
     }
 
+    private static function tableColumns(): array
+    {
+        $sql = "SHOW COLUMNS FROM " . self::getTableName() . "; ";
+        $stmt = self::$conn->prepare($sql);
+        $stmt->execute();
+        $data = [];
+        while ($resource = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $data[] = $resource["Field"];
+        }
+        $stmt->closeCursor();
+
+        return $data;
+    }
+
     private static function columns()
     {
-
         if (self::$columns === "*") {
-            $sql = "SHOW COLUMNS FROM " . self::getTableName() . "; ";
-            $stmt = self::$conn->prepare($sql);
-            $stmt->execute();
-            $data = [];
-            while ($resource = $stmt->fetch(PDO::FETCH_ASSOC)) {
-                $data[] = $resource["Field"];
-            }
-            $stmt->closeCursor();
-            $unformattedColumns = $data;
+            $unformattedColumns = self::tableColumns();
         } else {
             $unformattedColumns = explode(",", static::$columns ?? "");
         }
@@ -447,7 +452,7 @@ class Model
             $mutator = "set" . ucfirst($key) . "Attribute";
 
             if (method_exists(static::class, $mutator)) {
-                
+
                 $value = $instance->{$mutator}($value) ?? null;
             }
 
@@ -616,20 +621,10 @@ class Model
     {
         $params = [];
 
-        $columns = self::columns()->get();
-
-        $keys = array_keys($data);
+        $columns = self::tableColumns();
 
         foreach ($columns as $column) {
-            $fieldName = $column["field_name"];
-
-            if (in_array($fieldName, $keys)) {
-                $value = $data[$fieldName];
-
-              
-
-                $params[$fieldName] = $value;
-            }
+            $params[$column] = $data[$column] ?? null;
         }
 
         return $params;
@@ -731,20 +726,33 @@ class Model
         return self::destroy(self::$conn, $this->id);
     }
 
+    private function copycat(self $instance): void
+    {
+        foreach (get_object_vars($instance) as $key => $value) {
+            $this->{$key} = $value;
+        }
+    }
+
     public function save(array $options = [])
     {
         $params = [];
 
-        foreach ($this->fields as $field) {
-            $params[$field] = $this->{$field};
+        foreach (get_object_vars($this) as $key => $value) {
+            $params[$key] = $value;
         }
 
         $connection = self::$conn;
 
-        if ($this->id) {
-            return self::update($connection, $this->id, $params, $options);
+        if (isset($this->id)) {
+            $newInstance = self::update($connection, $this->id, $params, $options);
         } else {
-            return self::create($connection, $params, $options);
+            $newInstance = self::create($connection, $params, $options);
         }
+
+        if ($newInstance) {
+            $this->copycat($newInstance);
+        }
+        
+        return $newInstance;
     }
 }
