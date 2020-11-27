@@ -617,14 +617,52 @@ class Model
         return count($tableNameArr) > 1 ? $tableNameArr[1] : null;
     }
 
+    
+
+    
+
+    private static function execute(\Closure $closure, array $options = [])
+    {
+        $connection = self::$conn;
+
+        $stmt = $connection->prepare($options['sql']);
+
+        $execution = $closure($stmt, array_merge($options, ['connection' => $connection]));
+
+        if (isset($options['debug']) && boolval($options['debug'])) {
+            var_dump($stmt->errorInfo());
+        }
+
+        if (isset($options['show_query']) && boolval($options['show_query'])) {
+            var_dump($options['sql']);
+        }
+
+        return $execution;
+    }
+
+    private static function lastInsertedId()
+    {
+        $sql = "SELECT MAX(" . self::getKeyName() . ") AS last_inserted_id FROM " . self::getTableName() . "; ";
+
+        return self::execute(function ($stmt) {
+            $stmt->execute();
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            $stmt->closeCursor();
+            return $row['last_inserted_id'];
+        }, ['sql' => $sql]);
+    }
+
     private static function filterData(array $data): array
     {
         $params = [];
 
         $columns = self::tableColumns();
+       
 
-        foreach ($columns as $column) {
-            $params[$column] = $data[$column] ?? null;
+        foreach ($data as $key => $value) {
+            if(in_array($key, $columns)){
+                $params[$key] = $value;
+            }
         }
 
         return $params;
@@ -666,37 +704,6 @@ class Model
                 'values' => $values
             ])
         );
-    }
-
-    private static function execute(\Closure $closure, array $options = [])
-    {
-        $connection = self::$conn;
-
-        $stmt = $connection->prepare($options['sql']);
-
-        $execution = $closure($stmt, array_merge($options, ['connection' => $connection]));
-
-        if (isset($options['debug']) && boolval($options['debug'])) {
-            var_dump($stmt->errorInfo());
-        }
-
-        if (isset($options['show_query']) && boolval($options['show_query'])) {
-            var_dump($options['sql']);
-        }
-
-        return $execution;
-    }
-
-    private static function lastInsertedId()
-    {
-        $sql = "SELECT MAX(" . self::getKeyName() . ") AS last_inserted_id FROM " . self::getTableName() . "; ";
-
-        return self::execute(function ($stmt) {
-            $stmt->execute();
-            $row = $stmt->fetch(PDO::FETCH_ASSOC);
-            $stmt->closeCursor();
-            return $row['last_inserted_id'];
-        }, ['sql' => $sql]);
     }
 
     public static function destroy(PDO $conn, int $id, array $options = [])
@@ -755,4 +762,6 @@ class Model
         
         return $newInstance;
     }
+
+    
 }
