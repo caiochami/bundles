@@ -20,7 +20,7 @@ class Collection
         $this->collection = $data;
     }
 
-    public static function toArray($value) : array
+    public static function toArray($value): array
     {
         return json_decode(json_encode((array) $value), true);
     }
@@ -111,9 +111,11 @@ class Collection
                 return $item[$prop] >= $value;
             },
             "gte" => static function ($item, $prop, $value): bool {
+
                 return $item[$prop] >= $value;
             },
             "lt" => static function ($item, $prop, $value): bool {
+
                 return $item[$prop] < $value;
             },
             "le" => static function ($item, $prop, $value): bool {
@@ -132,25 +134,27 @@ class Collection
                 return strtotime($item[$prop]) < strtotime($value);
             },
             "whereCountIsGreaterThan" => static function ($item, $prop, $value = 0): bool {
-                $item = self::toArray($item);
+
                 return count((array) $item[$prop]) > $value;
             },
             "whereCountIsLesserThan" => static function ($item, $prop, $value = 0): bool {
-                $item = self::toArray($item);
+
                 return count((array) $item[$prop]) < $value;
             },
             "whereCountIsGreaterOrEqual" => static function ($item, $prop, $value = 0): bool {
-                $item = self::toArray($item);
+
                 return count((array) $item[$prop]) >= $value;
             },
             "whereCountIsLesserOrEqual" => static function ($item, $prop, $value = 0): bool {
-                $item = self::toArray($item);
+
                 return count((array) $item[$prop]) <= $value;
             },
             "contains" => static function ($item, $prop, $value): bool {
+
                 return in_array($item[$prop], (array) $value, true);
             },
             "notContains" => static function ($item, $prop, $value): bool {
+
                 return !in_array($item[$prop], (array) $value, true);
             },
 
@@ -165,7 +169,7 @@ class Collection
                     $callable,
                     $operator
                 ) {
-                    return $callable[$operator]($item, $idx, $val);
+                    return $callable[$operator](self::toArray($item), $idx, $val);
                 }
             )
         );
