@@ -199,7 +199,7 @@ class Collection
 
                     if (isset($value[$key]) && !in_array($value[$key], $verified)) {
                         $verified[$i] = $value[$key];
-                        $uniqueValues[$i] = $value;
+                        $uniqueValues[] = $value;
                     }
                 }
 
