@@ -11,7 +11,7 @@
 namespace Bundles;
 
 use Bundles\DB;
-use \Exception;
+
 use Bundles\Helper;
 
 class Rule
@@ -29,7 +29,7 @@ class Rule
       'boolean' => 'O campo %s deve ser um valor boleano',
       'url' => 'O campo %s não é uma URL válida',
       'email' => 'O campo %s não é um endereço de e-mail válido',
-      'date_format' => 'O campo %s deve ser uma data com formato %s',
+      'date_format' => 'O campo %s deve possuir o formato %s',
       'after' => 'O campo %s deve ser uma data posterior a %s',
       'before' => 'O campo %s deve ser uma data anterior a %s',
       'before_or_equal' => 'O campo %s deve ser uma data anterior ou igual a data %s',

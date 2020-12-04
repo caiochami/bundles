@@ -85,27 +85,35 @@ class Request
         return Collection::create($this)->get();
     }
 
-    public function validate(array $rules, array $customMessages = []): array
+    public function validate(array $rules, array $customMessages = [], \Closure $errorHandler = null): array
     {
+
         $validator = Validator::make($this->all(), $rules, self::$conn, $customMessages);
 
         if ($validator->fails()) {
             http_response_code(422);
 
+            $errors = $validator->errors();
+            $inputData = $this->all();
+
             $response = [
                 'message' => 'Erros encontrados',
-                'errors' => $validator->errors()
+                'errors' => $errors
             ];
 
-            if ($this->isJsonable()) {
-                die(json_encode($response));
+            if ($errorHandler) {
+                $errorHandler($errors, $inputData);
             } else {
-                $_SESSION['input'] = $this->all();
-                $_SESSION['errors'] = $validator->errors();
-                if (isset($_SERVER['HTTP_REFERER'])) {
-                    header('Location: ' . $_SERVER['HTTP_REFERER']);
+                if ($this->isJsonable()) {
+                    die(json_encode($response));
+                } else {
+                    $_SESSION['input'] = $inputData;
+                    $_SESSION['errors'] = $errors;
+                    if (isset($_SERVER['HTTP_REFERER'])) {
+                        header('Location: ' . $_SERVER['HTTP_REFERER']);
+                    }
+                    die(print_r($response));
                 }
-                die(print_r($response));
             }
         }
 
