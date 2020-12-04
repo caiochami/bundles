@@ -58,7 +58,7 @@ class Request
     {
         return $this->has($fieldName) &&
             ((!is_null($this->{$fieldName}) && !empty($this->{$fieldName})) || (gettype($fieldName) === "array" && count($this->{$fieldName}) > 0));
-    }   
+    }
 
     public function isJsonable()
     {
