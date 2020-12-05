@@ -248,11 +248,12 @@ class Collection
 
         $array = [];
 
-        foreach ($this->collection as $key => $item) {
-            $type =  gettype($item);
+        foreach ($this->collection as $item) {
 
-            $value = $type === "object" ? $item->{$column} : $value = $item[$column];
-            $index = $customIndex ? ($type === "object" ? $item->{$customIndex} : $value = $item[$customIndex]) : $key;
+            $idx = $customIndex ?? $column;
+
+            $value = $item->{$column} ?? $item[$column];
+            $index = $item->{$idx} ?? $item[$idx];
 
             $array[$index] = $value;
         }
