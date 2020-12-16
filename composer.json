@@ -1,24 +1,30 @@
 {
-    "name": "caiochami/bundles",
-    "description": "A laravel set of tools for non-laravel projects",
-    "type": "library",
-    "homepage": "https://github.com/caiochami/bundles",
-    "require": {
-        "php": ">=7.2",
-        "nesbot/carbon": "^2.41.5"
-    },
-    "keywords": ["laravel","model","collection","validator","request"],
-    "license": "MIT",
-    "authors": [
-        {
-            "name": "Caio Chami",
-            "email": "caio.chami18@gmail.com"
-        }
-    ],
-    "minimum-stability": "dev",
-    "autoload": {
-        "psr-4": {
-            "Bundles\\": "src/"
-        }
+  "name": "caiochami/bundles",
+  "description": "A laravel set of tools for non-laravel projects",
+  "type": "library",
+  "homepage": "https://github.com/caiochami/bundles",
+  "require": {
+    "php": "^7.2|^8.0",
+    "nesbot/carbon": "^2.41.5"
+  },
+  "keywords": [
+    "laravel",
+    "model",
+    "collection",
+    "validator",
+    "request"
+  ],
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Caio Chami",
+      "email": "caio.chami18@gmail.com"
     }
+  ],
+  "minimum-stability": "dev",
+  "autoload": {
+    "psr-4": {
+      "Bundles\\": "src/"
+    }
+  }
 }
